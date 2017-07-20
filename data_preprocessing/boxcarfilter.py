@@ -1,8 +1,9 @@
 # load modules
 import sys
-sys.path.append("./dopsearch_py")
+sys.path.append("../classification_of_HF_radar_backscatter")
+
 sys.path.append("/home/muhammad/Documents/Important/sd-data_update_indices")
-from  dopsearch import prepare_file
+from  iscat_identifier import prepare_file
 import datetime as dt
 from davitpy.pydarn.sdio.fetchUtils import fetch_local_files
 import os
