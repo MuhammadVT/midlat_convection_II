@@ -5,5 +5,8 @@ local/
 bin/
 
 # Folders that are should stay local
-python_mysql_dbconfig/
+mysql_dbconfig_files/
 /data
+
+# Some files
+pip-selfcheck.json
