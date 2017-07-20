@@ -1,0 +1,9 @@
+# virtualenv related folders
+include/
+lib/
+local/
+bin/
+
+# Folders that are should stay local
+python_mysql_dbconfig/
+/data
