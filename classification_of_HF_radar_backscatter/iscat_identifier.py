@@ -295,7 +295,10 @@ def read_data_from_file(myPtr, params=["velocity"], tbands=None, coords="geo", p
                 all_beams[bmnum]['rsep'].append(myBeam.prm.rsep)
                 all_beams[bmnum]['frang'].append(myBeam.prm.frang)
                 all_beams[bmnum]['gsflg'].append(myBeam.fit.gflg)
-                all_beams[bmnum]['slist'].append(myBeam.fit.slist)
+                if len(myBeam.fit.slist) > 0:
+                    all_beams[bmnum]['slist'].append(myBeam.fit.slist)
+                else:
+                    all_beams[bmnum]['slist'].append(None)
 
 ####################################################################
 
@@ -314,7 +317,10 @@ def read_data_from_file(myPtr, params=["velocity"], tbands=None, coords="geo", p
                 # To save time and RAM, only keep the data specified
                 # in params.
                 if('velocity' in params):
-                    all_beams[bmnum]['vel'].append(myBeam.fit.v)
+                    try:
+                        all_beams[bmnum]['vel'].append([round(x,2) for x in myBeam.fit.v])
+                    except:
+                        all_beams[bmnum]['vel'].append(None)
 
         myBeam = myPtr.readRec()
 
