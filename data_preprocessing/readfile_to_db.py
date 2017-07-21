@@ -103,6 +103,8 @@ class read_file_to_db(object):
         """
 
         import json 
+        import logging
+
         cur = conn.cursor()
 
         # loop through all the beams
@@ -120,7 +122,10 @@ class read_file_to_db(object):
                       gsflg TEXT DEFAULT NULL,\
                       datetime DATETIME,\
                       PRIMARY KEY (datetime))".format(tb=table_name)
-            cur.execute(command)
+            try:
+                cur.execute(command)
+            except Exception, e:
+                logging.error(e)
 
             # loop through each scan time, usually 2 minutes,
             # and write the data into table_name in db
@@ -128,14 +133,19 @@ class read_file_to_db(object):
                 command = "INSERT IGNORE INTO {tb} (vel, rsep, frang, bmazm, " +\
                           "slist, gsflg, datetime) VALUES (%s, %s, %s, %s, %s, %s, %s)"
                 command = command.format(tb=table_name)
-                cur.execute(command, (json.dumps(data_dict["vel"][i]), data_dict["rsep"][i],
-                            data_dict["frang"][i], data_dict["bmazm"][i],
-                            json.dumps(data_dict["slist"][i]),
-                            json.dumps(data_dict["gsflg"][i]),\
-                            data_dict["datetime"][i]))
-
+                try:
+                    cur.execute(command, (json.dumps(data_dict["vel"][i]), data_dict["rsep"][i],
+                                data_dict["frang"][i], data_dict["bmazm"][i],
+                                json.dumps(data_dict["slist"][i]),
+                                json.dumps(data_dict["gsflg"][i]),\
+                                data_dict["datetime"][i]))
+                except Exception, e:
+                    logging.error(e)
         # commit the change, once at one-day of data points
-        conn.commit()
+        try:
+            conn.commit()
+        except Exception, e:
+            logging.error(e)
 
         return 
 
@@ -172,6 +182,12 @@ def main():
     import sys
     sys.path.append("../")
     from mysql_dbutils import db_tools
+    import logging
+
+    # create a log file to which any error occured between client and 
+    # MySQL server communication will be written
+    logging.basicConfig(filename="./log_files/boxcar_filtered_data_to_db.log",
+                        level=logging.INFO)
 
     # input parameters
     sdate = dt.datetime(2015, 1, 1)     # includes sdate
@@ -191,9 +207,15 @@ def main():
     conn_dict = {} 
     for rad in rad_list:
         db_name = rad + "_boxcar_" + ftype 
-        conn_tmp = db_tools.create_db(db_name)
-        conn_tmp.cursor().execute("USE {db}".format(db=db_name))
-        conn_dict[rad] = conn_tmp
+        try:
+            conn_tmp = db_tools.create_db(db_name)
+        except Exception, e:
+            logging.error(e)
+        try:
+            conn_tmp.cursor().execute("USE {db}".format(db=db_name))
+            conn_dict[rad] = conn_tmp
+        except Exception, e:
+            logging.error(e)
 
     # create dates, does not include the edate 
     all_dates = [sdate + dt.timedelta(days=i) for i in range((edate-sdate).days)]
@@ -204,27 +226,30 @@ def main():
         # loop through the radars
         for rad in rad_list:
 
-            worker(conn_dict[rad], rad, ctr_date, ftype, params, ffname)
+#            worker(conn_dict[rad], rad, ctr_date, ftype, params, ffname)
 
-#            # Store multiprocesses in a list
-#            procs = []
-#
-#            # Creat a processe
-#            p = mp.Process(target=worker, args=(conn_dict[rad], rad, ctr_date,
-#                                                ftype, params, ffname))
-#            procs.append(p)
-#
-#            # Run the process
-#            p.start()
-#
-#        # Make sure the processes terminate
-#        for p in procs:
-#            p.join()
+            # Store multiprocesses in a list
+            procs = []
+
+            # Creat a processe
+            p = mp.Process(target=worker, args=(conn_dict[rad], rad, ctr_date,
+                                                ftype, params, ffname))
+            procs.append(p)
+
+            # Run the process
+            p.start()
+
+        # Make sure the processes terminate
+        for p in procs:
+            p.join()
 
 
     # close db connections
     for rad in rad_list:
-        conn_dict[rad].close()
+        try:
+            conn_dict[rad].close()
+        except Exception, e:
+            logging.error(e)
 
     return
 
