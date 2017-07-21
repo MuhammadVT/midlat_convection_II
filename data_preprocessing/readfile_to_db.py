@@ -199,8 +199,8 @@ def main():
     ffname = None
 
     # run the code for the following radars in parallel
-    #rad_list = ["adw", "ade", "hok", "hkw"]
-    rad_list = ["hok"]
+    rad_list = ["adw", "ade", "hok", "hkw"]
+    #rad_list = ["hok"]
 
 
     # create dbs for radars and save the db connections
