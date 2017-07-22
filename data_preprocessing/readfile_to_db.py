@@ -10,7 +10,8 @@ class read_file_to_db(object):
     """ A class that holds the boxcar median filtered data after reading them from a file.
     It writes the data into a MySQL db using its move_to_db method."""
 
-    def __init__(self, rad, ctr_date, ftype="fitacf", params=["velocity"], ffname=None):
+    def __init__(self, rad, ctr_date, ftype="fitacf", params=["velocity"],
+                 ffname=None, tmpdir=None):
 
         """ 
         Parameters
@@ -26,6 +27,9 @@ class read_file_to_db(object):
         ffname : string, default to None
             Full path of a file to be read. if ffname is not set to None, 
             ffname will be constructed.
+	tmpdir : str, default to None
+	    The directory in which to store temporary files. 
+	    If None, /tmp/sd will be used.	
 
         Returns
         -------
@@ -58,7 +62,8 @@ class read_file_to_db(object):
 
         # read data from file 
         # Note: data_from_db and plotrti arguments have to be False
-        self.data = read_data(rad, stm, etm, params, ftype=ftype, ffname=self.ffname,
+        self.data = read_data(rad, stm, etm, params, ftype=ftype,
+                              ffname=self.ffname, tmpdir=tmpdir,
                               data_from_db=False, plotrti=False)
 
     def _construct_filename(self, basedir="../data/"):
@@ -149,7 +154,7 @@ class read_file_to_db(object):
 
         return 
 
-def worker(conn, rad, ctr_date, ftype, params, ffname):
+def worker(conn, rad, ctr_date, ftype, params, ffname, tmpdir):
     """ A worker function used for multiprocessing.
     NOTE: see 'class read_file_to_db' for parameter definitions.
     """
@@ -159,7 +164,8 @@ def worker(conn, rad, ctr_date, ftype, params, ffname):
     # collect the data 
     t1 = dt.datetime.now()
     print "creating an object for " + rad + " for " + str(ctr_date)
-    rf = read_file_to_db(rad, ctr_date, ftype=ftype, params=params, ffname=ffname)
+    rf = read_file_to_db(rad, ctr_date, ftype=ftype, params=params,
+			 ffname=ffname, tmpdir=tmpdir)
     print "created an object for " + rad + " for " + str(ctr_date)
     if rf.data is not None:
         # move data to db
@@ -179,6 +185,7 @@ def main():
     
     import datetime as dt
     import multiprocessing as mp
+    import os
     import sys
     sys.path.append("../")
     from mysql_dbutils import db_tools
@@ -199,9 +206,13 @@ def main():
     ffname = None
 
     # run the code for the following radars in parallel
-    rad_list = ["adw", "ade", "hok", "hkw"]
-    #rad_list = ["hok"]
+    #rad_list = ["adw", "ade", "hok", "hkw"]
+    rad_list = ["adw"]
 
+    # create tmpdirs to store dmap files temporarily
+    for rad in rad_list:
+        tmpdir = "../data/" + rad + "_tmp"
+        os.system("mkdir -p " + tmpdir)
 
     # create dbs for radars and save the db connections
     conn_dict = {} 
@@ -226,14 +237,17 @@ def main():
         # loop through the radars
         for rad in rad_list:
 
-#            worker(conn_dict[rad], rad, ctr_date, ftype, params, ffname)
+            # set tmpdir
+            tmpdir = "../data/" + rad + "_tmp/"
+
+#            worker(conn_dict[rad], rad, ctr_date, ftype, params, ffname, tmpdir)
 
             # Store multiprocesses in a list
             procs = []
 
             # Creat a processe
             p = mp.Process(target=worker, args=(conn_dict[rad], rad, ctr_date,
-                                                ftype, params, ffname))
+                                                ftype, params, ffname, tmpdir))
             procs.append(p)
 
             # Run the process
