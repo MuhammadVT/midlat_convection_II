@@ -393,7 +393,8 @@ def read_from_db(rad, stm, etm, ftype="fitacf",
 
 def read_data(rad, stm, etm, params, ftype="fitacf",
               dbName=None, baseLocation="../data/sqlite3/",
-              data_from_db=True, ffname=None, plotrti=False):
+              data_from_db=True, ffname=None, plotrti=False,
+              tmpdir=None):
     """ A wrapper for reading a file. It reads all beams at once 
 
     Parameters
@@ -415,6 +416,9 @@ def read_data(rad, stm, etm, params, ftype="fitacf",
         If set to True, all parameters need for an RTI plot will also be read.
     ffname : str, default to None
         File name. Does not include file path
+    tmpdir : str, default to None
+        The directory in which to store temporary files.
+	If None, /tmp/sd will be used.
 
     Returns
     -------
@@ -433,7 +437,7 @@ def read_data(rad, stm, etm, params, ftype="fitacf",
     else:
         # read data from a file
         #try:
-        myPtr = radDataOpen(stm, rad, eTime=etm, fileName=ffname, fileType=ftype)
+        myPtr = radDataOpen(stm, rad, eTime=etm, fileName=ffname, fileType=ftype, tmpdir=tmpdir)
         beams_dict = read_data_from_file(myPtr, params=params, tbands=None, plotrti=plotrti)
         #except:
         #    beams_dict = None
