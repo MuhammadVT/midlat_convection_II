@@ -198,6 +198,7 @@ def main():
 
     # input parameters
     sdate = dt.datetime(2015, 1, 1)     # includes sdate
+#    sdate = dt.datetime(2016, 12, 18)     # includes sdate
     edate = dt.datetime(2017, 1, 1)     # does not include edate
     channel = None
     params=['velocity']
@@ -206,8 +207,9 @@ def main():
     ffname = None
 
     # run the code for the following radars in parallel
-    #rad_list = ["adw", "ade", "hok", "hkw"]
-    rad_list = ["adw"]
+    #rad_list = ["hok", "hkw", "ade", "adw"]
+    #rad_list = ["tig", "unw", "bpk"]
+    rad_list = ["ade"]
 
     # create tmpdirs to store dmap files temporarily
     for rad in rad_list:
@@ -219,10 +221,12 @@ def main():
     for rad in rad_list:
         db_name = rad + "_boxcar_" + ftype 
         try:
+            # create a db
             conn_tmp = db_tools.create_db(db_name)
         except Exception, e:
             logging.error(e)
         try:
+            # select the created db
             conn_tmp.cursor().execute("USE {db}".format(db=db_name))
             conn_dict[rad] = conn_tmp
         except Exception, e:
