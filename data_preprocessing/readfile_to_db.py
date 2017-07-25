@@ -160,6 +160,7 @@ def worker(conn, rad, ctr_date, ftype, params, ffname, tmpdir):
     """
 
     import datetime as dt
+    import logging
 
     # collect the data 
     t1 = dt.datetime.now()
@@ -168,13 +169,19 @@ def worker(conn, rad, ctr_date, ftype, params, ffname, tmpdir):
 			 ffname=ffname, tmpdir=tmpdir)
     print "created an object for " + rad + " for " + str(ctr_date)
     if rf.data is not None:
-        # move data to db
-        rf.move_to_db(conn)
-        print ("object has been moved to db")
+        # check the db connection. reconnect if closed
+        if not conn.is_connected():
+            conn.reconnect()
 
-    t2 = dt.datetime.now()
-    print ("creating and moving object to the db took " +\
-	    str((t2-t1).total_seconds() / 60.)) + " mins\n"
+        # move data to db
+        try:
+            rf.move_to_db(conn)
+            print ("object has been moved to db")
+            t2 = dt.datetime.now()
+            print ("creating and moving object to the db took " +\
+                    str((t2-t1).total_seconds() / 60.)) + " mins\n"
+        except Exception, e:
+            logging.error(e)
 
     return
 
@@ -209,7 +216,8 @@ def main():
     # run the code for the following radars in parallel
     #rad_list = ["hok", "hkw", "ade", "adw"]
     #rad_list = ["tig", "unw", "bpk"]
-    rad_list = ["ade"]
+    rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+    #rad_list = ["adw"]
 
     # create tmpdirs to store dmap files temporarily
     for rad in rad_list:
