@@ -11,8 +11,7 @@ def create_db(db_name, config_filename="../mysql_dbconfig_files/config.ini",
   
     Returns
     -------
-    MySQLConnection
-        MySQL connection to the newly created db.
+    Nothing
 
     """
     
@@ -30,5 +29,8 @@ def create_db(db_name, config_filename="../mysql_dbconfig_files/config.ini",
     command = "CREATE DATABASE IF NOT EXISTS {db}".format(db=db_name) 
     conn.cursor().execute(command)
 
-    return conn
+    # close the db connection
+    conn.close()
+
+    return 
 
