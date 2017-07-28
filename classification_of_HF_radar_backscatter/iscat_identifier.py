@@ -370,6 +370,7 @@ def read_from_db(rad, stm, etm, ftype="fitacf",
 	import sys
 	sys.path.append("../")
 	from mysql_dbutils.db_config import db_config
+        import logging
         
         # construct a db name
         if dbName is None:
@@ -380,16 +381,18 @@ def read_from_db(rad, stm, etm, ftype="fitacf",
 	config_info = config.read_db_config()
 
 	# make db connection
-	conn = MySQLConnection(**config_info)
+	conn = MySQLConnection(database=dbName, **config_info)
         cur = conn.cursor()
-	cur.execute("USE {db}".format(db=dbName))
 
         # get all the table names
 	command = "SELECT table_name FROM information_schema.tables "
 	command = command + "where table_schema={db}".format(db=dbName)
-        cur.execute(command)
-        tbl_names = cur.fetchall()
-        tbl_names = [x[0] for x in tbl_names]
+        try: 
+            cur.execute(command)
+            tbl_names = cur.fetchall()
+            tbl_names = [x[0] for x in tbl_names]
+        except Exception, e:
+            logging.error(e)
 
         # get the available beam numbers 
         beam_nums = [x.split("_")[-1][2:] for x in tbl_names]
@@ -403,8 +406,11 @@ def read_from_db(rad, stm, etm, ftype="fitacf",
                        WHERE datetime BETWEEN '{stm}' AND '{etm}'\
                        ORDER BY datetime".\
                        format(tb=tbl_names[jj], stm=stm, etm=etm)
-            cur.execute(command)
-            rws = cur.fetchall()
+            try:
+                cur.execute(command)
+                rws = cur.fetchall()
+            except Exception, e:
+                logging.error(e)
             if rws:
                 data_dict = {}
                 data_dict['vel'] = [json.loads(x[0]) for x in rws]
@@ -417,6 +423,9 @@ def read_from_db(rad, stm, etm, ftype="fitacf",
                 beams_dict[bmnum] = data_dict
         if not beams_dict:
             beams_dict = None
+
+        # close the db
+        conn.close()
 
         return beams_dict
 
@@ -480,26 +489,50 @@ def read_data(rad, stm, etm, params, ftype="fitacf",
 
 def create_nodes(data_dict):
     """ Create nodes using time indices and gate numbers from the data_dict. 
-    Nondes are list of lists. Each list element is a collection of nodes for a given time_index
-    A node is a range-gate cell in the rti plot.
+    A node is a range-gate cell in the rti plot. Nodes are list of lists.
+    Each list element is a collection of nodes for a given time_index.
 
+    Parameters
+    ----------
     data_dict : dict
-        a dict that holds parameters and their values of a beam data
+        a dict that holds data from a radar beam
+
+    Returns
+    -------
+    a list of lists
+        Each list element is a collection of nodes for a given time_index.
+
     """
     
-    # exclude the rage gates below 7
-    nodes = [[(i,y) for y in data_dict['slist'][i] if y >=7] for i in xrange(len(data_dict['datetime']))]
-
-#    # remove the empty entries
-#    nodes = [x for x in nodes if x!=[]]
+    # create nodes while excluding the rage gates below 7
+    nodes = [[(i,y) for y in data_dict['slist'][i] if y >=7] \
+             for i in xrange(len(data_dict['datetime']))]
 
     return nodes
 
 def find_start_node(nodes, visited_nodes=None):
+    """ Finds the starting node of a cluster (tree).
+
+    Parameters
+    ----------
+    nodes : list
+        A list of lists. Each list element is a collection of
+        nodes with the same time_index. Each node is a tuple
+    visited_nodes : list, default to None
+        A list of tuples. Each element is a node represented by a tuple.
+        (time_index, gate_num)
+
+    Returns
+    -------
+    start_node : tuple
+
+    """
 
     if visited_nodes is None:
         visited_nodes = set()
     start_node = None
+
+    # look for starting node that is not visited
     for sublist in nodes:
         for itm in sublist:
             if (itm not in visited_nodes):
@@ -511,22 +544,46 @@ def find_start_node(nodes, visited_nodes=None):
 
 
 def create_graph(vertex, nodes, data_dict, visited_nodes=None):
-    """ all nodes should be fed to nodes argument """
+    """  Create a graph that consists nodes adjacent to the vertex.
+    Note : all the nodes should be fed to nodes argument.
 
-    yy = [vertex[1] + yi for yi in [-1, 0, 1]]  #range-gate indices centered at the range-gate index of the vertex 
-    yy = [x for x in yy if x >= 7]      # remove points below rage-gate 7
+    Parameters
+    ----------
+    vertex : tuple
+        A node
+    nodes : list
+        A list of lists. Each list element is a collection of
+        nodes with the same time_index. Each node is a tuple.
+    data_dict : dict
+        a dict that holds data from a radar beam
+    visited_nodes : a set of tuples, default to None
 
+    Returns
+    -------
+    dict
+        e.g., G = {vertex:adjacent_nodes}.
+    
+    """
+
+    # range-gate indices centered at the range-gate index of the vertex
+    yy = [vertex[1] + yi for yi in [-1, 0, 1]]   
+
+    # remove points below rage-gate 7
+    yy = [x for x in yy if x >= 7]     # range-gates 
+
+    # find the nodes adjacent to the vertex from the next time step 
     tm_indx = vertex[0]
-    deltm_lim = 6.0
-    xx = [tm_indx]
-    k = tm_indx + 1
+    deltm_lim = 6.0     # minute, the time gap allowed between two adjacent cluster of pionts
+    xx = [tm_indx]      # times
+    k = tm_indx + 1     # index for next time step
     tm_now = data_dict['datetime'][tm_indx]
     try:
         tm_next = data_dict['datetime'][k]
         del_time = round(abs((tm_next - tm_now).total_seconds()) / 60.)
+
+        # find range gates, if exists, from the next time step
         while del_time<deltm_lim:
             gates_tmp = set([t[1] for t in nodes[k]]).intersection(set(yy))
-            #if nodes[k] != []:
             if len(gates_tmp)>0:
                 xx.append(k)   
                 break
@@ -538,15 +595,17 @@ def create_graph(vertex, nodes, data_dict, visited_nodes=None):
     except IndexError:
         pass
 
-    k = tm_indx - 1
+    # find the nodes adjacent to the vertex from the previous time step 
+    k = tm_indx - 1   # index for previous time step
     try:
         tm_next = data_dict['datetime'][k]
         del_time = round(abs((tm_now - tm_next).total_seconds()) / 60.)
+
+        # find range gates, if exists, from the previous time step
         while del_time<deltm_lim:
             gates_tmp = set([t[1] for t in nodes[k]]).intersection(set(yy))
-            #if nodes[k] != []:
             if len(gates_tmp)>0:
-                xx.append(k)   
+                #xx.append(k)   
                 xx.insert(0, k)
                 break
             else:
@@ -557,9 +616,9 @@ def create_graph(vertex, nodes, data_dict, visited_nodes=None):
     except IndexError:
         pass
 
-
     # create a tuple that inclues actual neighbering vortice
-    xy = [(i,j) for i in xx for j in set([x[1] for x in nodes[i]]).intersection(set(yy))] 
+    xy = [(i,j) for i in xx for j in set([x[1] for x in nodes[i]])\
+            .intersection(set(yy))] 
     xy.remove(vertex)    # remove the vertex from xy 
     if visited_nodes is not None:
         xy = [x for x in xy if x not in visited_nodes]
@@ -567,15 +626,36 @@ def create_graph(vertex, nodes, data_dict, visited_nodes=None):
     for tpl in xy:
         adjacent_nodes.add(tpl)
     G = {vertex:adjacent_nodes}
+
     return G
 
-
 def search_tree(start, nodes, data_dict, visited_nodes=None):
-    """ all nodes should be fed to nodes argument """
+    """ Finds all the connected nodes.
 
-    # create a grash as a start
+    Parameters
+    ----------
+    start : tuple
+        The starting node (i.e., a time_index-range_gate cell in rti plot)
+    nodes : list
+        A list of lists. Each list element is a collection of
+        nodes with the same time_index. Each node is a tuple.
+        NOTE: all nodes should be fed to nodes argument.
+    data_dict : dict
+        a dict that holds data from a radar beam
+    visited_nodes : set, default to None
+        A set of nodes (tuples)
+
+    Returns
+    -------
+    set
+        A set of nodes that are connected.
+
+    """
+
+    # create a graph as a start
     G = create_graph(start, nodes, data_dict, visited_nodes=visited_nodes)
-    # do the breath_firt_search
+
+    # do the breath_fisrt_search to find the connected nodes
     visited = set()
     queue = [start]
     while queue:
@@ -593,6 +673,22 @@ def search_tree(start, nodes, data_dict, visited_nodes=None):
     return visited
 
 def push_stm_etm(cluster, data_dict, vel_threshold=15.):
+    """ Slides the starting and ending time indices of an event cluster
+    (a cluster of ionpsheric scatters) to exclude the ground scatter contaminations
+    from its two edges.
+
+    Parameters
+    ----------
+    cluster : set
+        A set of connected nodes
+    data_dict : dict
+        a dict that holds data from a radar beam
+    vel_threshold : float
+
+
+    Returns
+    -------
+    """
     import datetime as dt
     # write cluster as list of lists. Each list element stors the data for a given time
     tm_indices = sorted(list(set([x[0] for x in cluster])))
@@ -619,10 +715,12 @@ def push_stm_etm(cluster, data_dict, vel_threshold=15.):
     sindx = 0
     eindx = len(cluster_lol)-1 
     for ii in xrange(len(tm_indices)):
+
         # determine the starting time of the cluster 
         if update_stm:
             cluster_left = cluster_lol[0:ii+gates_width+1] if ii < gates_width \
                     else cluster_lol[ii-gates_width:ii+gates_width+1]
+
             # flatten cluster_left
             cluster_left = [x for y in cluster_left for x in y]
             
@@ -677,7 +775,6 @@ def push_stm_etm(cluster, data_dict, vel_threshold=15.):
             else:
                 update_etm = False 
 
-
         # check the time duration of the cluster
         stm = data_dict['datetime'][stm_indx]
         etm = data_dict['datetime'][etm_indx]
@@ -693,15 +790,38 @@ def push_stm_etm(cluster, data_dict, vel_threshold=15.):
     return cluster
 
 def isevent(cluster, data_dict, vel_threshold=15.):
+    """ Checks whether a cluster is an event (ionospheric scatter) or not.
+
+    Parameters
+    ----------
+    cluster : set
+        A set of connected nodes
+    data_dict : dict
+        a dict that holds data from a radar beam
+    vel_threshold : float
+        A velocity threshold used for determining the scatter type of 
+        a cluster.
+
+    Returns
+    -------
+    bool
+        returns True if the cluster is an event (ionospheric scatter)
+
+    """
+
     import datetime as dt
+
     # find time indices
     tm_indices = sorted(list(set([x[0] for x in cluster])))
 
+    # calculate the time span of a cluster
     stm_indx = tm_indices[0]
     etm_indx = tm_indices[-1]
     stm = data_dict['datetime'][stm_indx]
     etm = data_dict['datetime'][etm_indx]
     tm_del = etm - stm
+
+    # determine the scatter type of the cluster based on its time span and velocity profile
     result = False
     if tm_del <= dt.timedelta(hours=1):
         pass
@@ -709,13 +829,14 @@ def isevent(cluster, data_dict, vel_threshold=15.):
     elif tm_del >= dt.timedelta(hours=14):
         pass
     else:
+        # get all the LOS velocity values in the cluster
         cluster_vels = [data_dict['vel'][item[0]][(data_dict['slist'][item[0]]).index(item[1])] \
                 for item in cluster]
 
         high_vels_num = len([x for x in cluster_vels if abs(x) > vel_threshold])
         low_vels_num = len(cluster_vels) - high_vels_num
 
-        # exclude the case where low_vels_num is 0
+        # catch the case where low_vels_num is 0
         try:
             high_to_low_ratio = (high_vels_num *1.0) / low_vels_num
         except:
@@ -736,10 +857,27 @@ def isevent(cluster, data_dict, vel_threshold=15.):
          
 
 def is_low_vel_event(cluster, data_dict, vel_lim=120):
+
+    """ Checks whether an ionospheric scatter event is a low velocity event.
+
+    Parameters
+    ----------
+    cluster : set
+        A set of connected nodes
+    data_dict : dict
+        a dict that holds data from a radar beam
+    vel_lim : int
+        Velocity threshold used for excluding hih velocity events
+
+    Returns
+    -------
+    bool
+        If returns True then the event is a low velocity event
+    """
+
     import datetime as dt
 
     result = False
-
     # low_vel_event has to be an iscat event
     if isevent(cluster, data_dict, vel_threshold=15.):
 
@@ -750,6 +888,7 @@ def is_low_vel_event(cluster, data_dict, vel_lim=120):
         third_percentile = np.percentile(cluster_vels, 3)
         nightyseventh_percentile = np.percentile(cluster_vels, 97)
 
+        # determine whether the event is low velocity event
         if (third_percentile>-vel_lim and nightyseventh_percentile<vel_lim):
             result = True
 
@@ -757,6 +896,17 @@ def is_low_vel_event(cluster, data_dict, vel_lim=120):
        
 
 def change_gsflg(cluster, data_dict, gscat_value=0):
+    """ Changes the original gsflg with the new ones given by gscat_value.
+
+    Parameters
+    ----------
+    cluster : set
+        A set of connected nodes
+    data_dict : dict
+        a dict that holds data from a radar beam
+    gscat_value : int
+        The flag value used to indicate ground scatter.
+    """
     for tpl in cluster:
         x1, x2 = tpl 
         indx = data_dict['slist'][x1].index(x2)
@@ -765,28 +915,27 @@ def change_gsflg(cluster, data_dict, gscat_value=0):
 
 def remove_gscat(all_iscat, data_dict):
 
-
-    """ removes the gscat and leave only iscat
+    """ removes the gscat and leave only iscat.
 
     all_iscat : set
-        a set of tuples. each tuple is in the form of (tm_indx, gate_num)
+        a set of tuples. Each tuple is in the form of (tm_indx, gate_num)
     data_dict : dict
-        holds parameters from a certain beam. 
+        holds data from a certain beam. 
 
     Returns
     iscat_dict : dict
-        a dict of dicts similiar to data_dict but only holdes the iscat data
-
+        a dict of dicts similiar to data_dict but only holds the iscat data
     
     """
 
-    # write all_iscat set as list of lists. Each list element stors iscat cells for a given time
+    # write all_iscat set as list of lists. Each list element stors iscat cells
+    # for a given time
     tm_indices = sorted(list(set([x[0] for x in all_iscat])))
     all_iscat_lol = [[x for x in all_iscat if y==x[0]] for y in tm_indices]
 
+    # initialize iscat_dict
     kys_tmp = data_dict.keys()
     iscat_dict = dict()
-    # initialize iscat_dict
     for d in kys_tmp:
         iscat_dict[d] = []
 
@@ -815,11 +964,31 @@ def remove_gscat(all_iscat, data_dict):
     return iscat_dict
 
 def select_target_interval(data_dict, stm, etm):
-    
-    """ selects data for a time interval between stm and etm """
-    stm_indx = np.argmin(np.array([abs((x-stm).total_seconds()) for x in data_dict['datetime']]))
-    etm_indx = np.argmin(np.array([abs((x-etm).total_seconds()) for x in data_dict['datetime']]))
+    """ selects data for a time interval between stm and etm
 
+    Parameters
+    ----------
+    data_dict : dict
+        holds data from a certain beam. 
+    stm : datetime.datetime
+        start time
+    etm : datetime.datetime
+        end time
+   
+    Returns
+    -------
+    dict
+        data from a certain beam for time period between stm and etm
+    
+    """
+
+    # find indices corresponding to stm and etm
+    stm_indx = np.argmin(np.array([abs((x-stm).total_seconds()) for\
+                                   x in data_dict['datetime']]))
+    etm_indx = np.argmin(np.array([abs((x-etm).total_seconds()) for\
+                                   x in data_dict['datetime']]))
+
+    # select data between stm and etm
     kys_tmp = data_dict.keys()
     for ky in kys_tmp:
         data_dict[ky] = data_dict[ky][stm_indx:etm_indx+1]
@@ -828,40 +997,55 @@ def select_target_interval(data_dict, stm, etm):
 
 def search_iscat_event(beam_dict, ctr_date, bmnum, params, 
                        low_vel_iscat_event_only=True, no_gscat=False):
-    """ do the classification for 3 days data one beam at a time.
-    
+    """ Does the ionospheric scatter event classification for
+    3 days of data from a given beam.
+
+    Parameters
+    ----------
+    beam_dict : dict
+        A dictionaly that stores 3-days of data from all the beams of a radar
+    ctr_date : datetime.datetime
+        The date of interest
+    bmnum : int
+        Radar beam number
+    params : list
+        e.g., ["velocity"]
     low_vel_iscat_event_only : bool
         It set to True, returns low velocity inospheric scatter event only
+    no_gscat : bool
+        If set to True measurements flagged as ground scatter will be removed  
         
-    Returns : dict
-        A dict of dicts in the form of {bmnum:dict}.
-        returns data of a beam with all its points' gsflg marked as 1 (gscat) except for iscat
+    Returns
+    -------
+    dict
+        A dict of dicts in the form of {bmnum:dict}. Returns data of a beam with all its
+        points' gsflg marked as 1 (gscat) except for iscat
     """
 
     # create nodes, whic is a list of lists, from data_dict.
     # Each node is represented by (time_index, gate_number)
-
     data_dict = beam_dict[bmnum]
     nodes = create_nodes(data_dict)
-
-    # cluster the data using depth_first_search algorithm
 
     # cluster the data using breath_first_search algorithm
     clusters = []
     visited_nodes_all = set() 
+
+    # get a startting node
     start_node = find_start_node(nodes, visited_nodes=None)
     while start_node:
+
+        # look for a tree
         visited_nodes = search_tree(start_node, nodes, 
                                     data_dict, visited_nodes=visited_nodes_all)    # returns a set
         clusters.append(visited_nodes)
         visited_nodes_all.update(visited_nodes) 
-        #visited_nodes_all = set([x for y in clusters for x in y])
+
+        # get a startting node
         start_node = find_start_node(nodes, visited_nodes=visited_nodes_all)
 
-
-    # pul all the clusters classified as events 
+    # Identify events from the clusters
     all_iscat = set([])
-    #clusters = clusters[:5]
     for cluster in clusters:
         
         # find the starting and ending times of a cluster
@@ -872,12 +1056,12 @@ def search_iscat_event(beam_dict, ctr_date, bmnum, params,
             event_logic = is_low_vel_event(cluster, data_dict)
         else:
             event_logic = isevent(cluster, data_dict)
+
         if event_logic:
             # change the gsflg values to 0(isact)
             change_gsflg(cluster, data_dict, gscat_value=0)
             all_iscat.update(cluster)    
 
-    #nodes_flat = set([x for y in nodes for x in y])
     if no_gscat:
         # check whether all_iscat is empty
         if len(all_iscat) > 0:
@@ -887,7 +1071,8 @@ def search_iscat_event(beam_dict, ctr_date, bmnum, params,
             data_dict = None
     else:
         # change the gsflg values of non-events to 1(gsact)
-        all_nodes_flat = [(i,y) for i in xrange(len(data_dict['datetime'])) for y in data_dict['slist'][i]]
+        all_nodes_flat = [(i,y) for i in xrange(len(data_dict['datetime']))\
+                          for y in data_dict['slist'][i]]
         all_gscat = set(all_nodes_flat) - all_iscat
         change_gsflg(all_gscat, data_dict, gscat_value=1)
 
@@ -899,63 +1084,61 @@ def search_iscat_event(beam_dict, ctr_date, bmnum, params,
 
     return {bmnum:data_dict}
 
-#def remove_gscat(data_dict):
-#    """ removes the gscat and leave only iscat
-#
-#    data_dict : dict
-#        holds parameters from a certain beam. 
-#    
-#    """
-#    kys_tmp = data_dict.keys()
-#    kys_a = []    # stores parameters like "slist", "vel" 
-#    kys_b = []    # stores parameters like "bmazm", "datetime"
-#    for ky in kys_tmp:
-#        if data_dict[ky] == []:
-#            data_dict.pop(ky)
-#            continue
-#        if isinstance(data_dict[ky][0], list):
-#            kys_a.append(ky)
-#        else:
-#            kys_b.append(ky)
-#
-#    kys_a.remove('gsflg')
-#    for ky in kys_a:
-#        data_tmp = [[x for j, x in enumerate(l) if data_dict['gsflg'][i][j]==0]\
-#                for i, l in enumerate(data_dict[ky]) if l]
-#        data_dict[ky] = data_tmp
-#    for ky in kys_b:
-#        data_tmp = [x for i, x in enumerate(data_dict[ky])\
-#                if (not np.all(data_dict['gsflg'][i])) and (data_dict['gsflg'][i] is not None)]
-#        data_dict[ky] = data_tmp
-#
-#    data_tmp = [[x for j, x in enumerate(l) if x == 0]\
-#            for i, l in enumerate(data_dict['gsflg']) if l]
-#    data_dict['gsflg'] = data_tmp
-#
-#
-#    return
-
 def iscat_event_searcher(ctr_date, localdict,
                          tmpdir=None, fnamefmt=None, localdirfmt=None, 
                          params=["velocity"], low_vel_iscat_event_only=False,
                          search_allbeams=True, bmnum=7, no_gscat=False, 
-                         data_from_db=True, dbName=None,
-                         baseLocation="../data/sqlite3/",
-                         ffname=None, plotrti=False):
+                         data_from_db=True, dbName=None, section="midlat",
+			 config_filename="../mysql_dbconfig_files/config.ini",
+			 ffname=None):
+
     """ A wrapper that does all of file prepareting, file reading, and 
         searching for iscat events.
         
+    Parameters
+    ----------
+
+    ctr_date : datetime.datetime
+        The date of interest
+    localdict : dict
+        Contains keys for non-time related information in remotedirfmt and
+        fnamefmt (eg remotedict={'ftype':'fitex','radar':'sas','channel':'a'})  
+    tmpdir : str
+        Temporary directory in which to store uncompressed files (must end with
+        a "/").
+    fnamefmt : str or list
+        Optional string or list of file name formats
+        (eg fnamefmt = ['{date}.{hour}......{radar}.{channel}.{ftype}', \
+            '{date}.C0.{radar}.{ftype}'] 
+        or fnamefmt = '{date}.{hour}......{radar}.{ftype}')
+    localdirfmt : str
+        string defining the local directory structure
+        (eg "{ftype}/{year}/{month}/{day}/")
     params : list
         works for params=["velocity"] only
+    low_vel_iscat_event_only :  bool
+	Identifies the low velocity event only
     search_allbeams : bool
         if set to true, iscat event searching will be performed on all the 
         beams, and ignores the bmnum argument. 
     bmnum : int
         bmnum argument only works in search_allbeams is set to False
-    no_gscat : removes all the gscat
-    ffname : string
-        if data_from_db is set to False, data will be be read from ffname.
-        In this case tmpdir, fnamefmt, localdirfmt all
+    no_gscat : bool
+	removes all the gscat
+    data_from_db : bool
+	If set to True data will be read from database
+    dbName : str, default to None
+        db name
+    config_filename : str
+        name of the configuration file
+    section: str
+        section of database configuration
+    ffname : string, default to None
+        The file name of the boxcar filtered data.
+        if data_from_db is set to False and ffname is not None,
+	then data will be be read from ffname.
+        if data_from_db is set to False and ffname is None,
+        then tmpdir, fnamefmt, localdirfmt all
         must have to be set other than None.
 
     Returns : dict
@@ -965,6 +1148,7 @@ def iscat_event_searcher(ctr_date, localdict,
         if no_gscat==True, returns only the iscat (gsflg=0)
         
     """
+    # start and end time for three days centered at ctr_date
     stm = ctr_date - dt.timedelta(days=1)
     etm = ctr_date + dt.timedelta(days=2)
     rad = localdict["radar"]
@@ -972,20 +1156,16 @@ def iscat_event_searcher(ctr_date, localdict,
 
     # prepare the data
     if not data_from_db:
-        ffname = prepare_file(ctr_date, localdirfmt, localdict, tmpdir, fnamefmt) 
+	if ffname is None:
+	    ffname = prepare_file(ctr_date, localdirfmt, localdict, tmpdir, fnamefmt) 
 
-#    t1 = dt.datetime.now()
     # read the file. Returns a dict of dicts with bmnums as key words.
     all_beams = read_data(rad, stm, etm, params, ftype=ftype,
-                          data_from_db=data_from_db, dbName=dbName,
-                          baseLocation=baseLocation, ffname=ffname, 
-                          plotrti=plotrti)
-#    t2 = dt.datetime.now()
-#    print ("read_file takes " + str((t2-t1).total_seconds() / 60.)) + " mins"
+			  ffname=ffname, data_from_db=data_from_db,
+                          dbName=dbName, config_filename=config_filename,
+			  section=section, tmpdir=tmpdir, plotrti=False)
 
     # search for iscat events
-#    t1 = dt.datetime.now()
-
     if all_beams is None:
         events = None
     else:
@@ -1003,14 +1183,30 @@ def iscat_event_searcher(ctr_date, localdict,
                     low_vel_iscat_event_only=low_vel_iscat_event_only, no_gscat=no_gscat))
             else:
                 events = None
-    #    t2 = dt.datetime.now()
-    #    print ("iscat event searching process takes " + str((t2-t1).total_seconds() / 60.)) + " mins"
 
     return events
 
-
 def rtiplot(rad, stm, etm, bmnum, params, beams_dict=None,
             fileType="fitacf", fileName=None):
+    """Wrapper function for making an rti plot.
+    rad : str
+        Three-letter radar code
+    stm : datetime.datetime
+    etm : datetime.datetime
+    bmnum : int
+    params : list
+        e.g., ["velocity"]
+    beams_dict : dict, default to None
+    filetype : str
+        Superdarn file type
+    fileName : str
+        Full path of a file
+
+    Returns
+    -------
+    matplotlib.Figure object
+
+    """
 
     from myrti import plot_rti
 
@@ -1025,8 +1221,6 @@ def rtiplot(rad, stm, etm, bmnum, params, beams_dict=None,
             params=params, scales=scales, colors="aj", yrng=yrng, fileType=fileType,
             filtered=filtered, fileName=fileName)
 
-
-    plt.show()
     return fig 
 
 # run the code
