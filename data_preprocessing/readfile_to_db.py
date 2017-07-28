@@ -161,6 +161,7 @@ def worker(conn, rad, ctr_date, ftype, params, ffname, tmpdir):
 
     import datetime as dt
     import logging
+    import os
 
     # collect the data 
     t1 = dt.datetime.now()
@@ -176,9 +177,17 @@ def worker(conn, rad, ctr_date, ftype, params, ffname, tmpdir):
         # move data to db
         try:
             rf.move_to_db(conn)
-            print ("object has been moved to db")
+            print ("object for " + rad + " has been moved to db")
+
+            # remove the file from tmpdir
+            ffname_rm = tmpdir + "/" + rf.ffname.split("/")[-1][:-1]
+            ffname_rm = ".".join(ffname_rm.split(".")[:3]) + "*"
+            cmnd = "rm " + ffname_rm
+            os.system(cmnd)
+            print cmnd
+            print (ffname_rm + " has been removed")
             t2 = dt.datetime.now()
-            print ("creating and moving object to the db took " +\
+            print ("creating an object for " + rad + " and moving it to the db took " +\
                     str((t2-t1).total_seconds() / 60.)) + " mins\n"
         except Exception, e:
             logging.error(e)
@@ -195,47 +204,55 @@ def main():
     import os
     import sys
     sys.path.append("../")
-    from mysql_dbutils import db_tools
+    from mysql_dbutils import db_tools, db_config
     import logging
+    from mysql.connector import MySQLConnection
 
     # create a log file to which any error occured between client and 
     # MySQL server communication will be written
-    logging.basicConfig(filename="./log_files/boxcar_filtered_data_to_db.log",
+    logging.basicConfig(filename="./log_files/boxcar_filtered_data_to_db_cvw.log",
                         level=logging.INFO)
 
     # input parameters
-    sdate = dt.datetime(2015, 1, 1)     # includes sdate
-#    sdate = dt.datetime(2016, 12, 18)     # includes sdate
+    sdate = dt.datetime(2011, 1, 1)     # includes sdate
+#    sdate = dt.datetime(2016, 6, 21)     # includes sdate
     edate = dt.datetime(2017, 1, 1)     # does not include edate
     channel = None
     params=['velocity']
     ftype = "fitacf"
-    #ftype = "fitex"
     ffname = None
 
     # run the code for the following radars in parallel
     #rad_list = ["hok", "hkw", "ade", "adw"]
     #rad_list = ["tig", "unw", "bpk"]
-    rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
-    #rad_list = ["adw"]
+    # rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+    rad_list = ["cvw"]
 
     # create tmpdirs to store dmap files temporarily
     for rad in rad_list:
         tmpdir = "../data/" + rad + "_tmp"
         os.system("mkdir -p " + tmpdir)
 
-    # create dbs for radars and save the db connections
-    conn_dict = {} 
+    # create dbs (if not exist) for radars
     for rad in rad_list:
         db_name = rad + "_boxcar_" + ftype 
         try:
             # create a db
-            conn_tmp = db_tools.create_db(db_name)
+            db_tools.create_db(db_name)
         except Exception, e:
             logging.error(e)
+
+    # read the db config info
+    config = db_config.db_config(config_filename="../mysql_dbconfig_files/config.ini",
+				  section="midlat")
+    config_info = config.read_db_config()
+
+    # make db connections and same them into a dict
+    conn_dict = {} 
+    for rad in rad_list:
+        db_name = rad + "_boxcar_" + ftype 
         try:
-            # select the created db
-            conn_tmp.cursor().execute("USE {db}".format(db=db_name))
+            conn_tmp = MySQLConnection(database=db_name, **config_info)
             conn_dict[rad] = conn_tmp
         except Exception, e:
             logging.error(e)
