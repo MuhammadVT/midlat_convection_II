@@ -130,7 +130,7 @@ class read_file_to_db(object):
             try:
                 cur.execute(command)
             except Exception, e:
-                logging.error(e)
+                logging.error(e, exc_info=True)
 
             # loop through each scan time, usually 2 minutes,
             # and write the data into table_name in db
@@ -145,12 +145,12 @@ class read_file_to_db(object):
                                 json.dumps(data_dict["gsflg"][i]),\
                                 data_dict["datetime"][i]))
                 except Exception, e:
-                    logging.error(e)
+                    logging.error(e, exc_info=True)
         # commit the change, once at one-day of data points
         try:
             conn.commit()
         except Exception, e:
-            logging.error(e)
+            logging.error(e, exc_info=True)
 
         return 
 
@@ -190,7 +190,7 @@ def worker(conn, rad, ctr_date, ftype, params, ffname, tmpdir):
             print ("creating an object for " + rad + " and moving it to the db took " +\
                     str((t2-t1).total_seconds() / 60.)) + " mins\n"
         except Exception, e:
-            logging.error(e)
+            logging.error(e, exc_info=True)
 
     return
 
@@ -210,7 +210,7 @@ def main():
 
     # create a log file to which any error occured between client and 
     # MySQL server communication will be written
-    logging.basicConfig(filename="./log_files/boxcar_filtered_data_to_db_cvw.log",
+    logging.basicConfig(filename="./log_files/boxcar_filtered_data_to_db.log",
                         level=logging.INFO)
 
     # input parameters
@@ -240,14 +240,14 @@ def main():
             # create a db
             db_tools.create_db(db_name)
         except Exception, e:
-            logging.error(e)
+            logging.error(e, exc_info=True)
 
     # read the db config info
     config = db_config.db_config(config_filename="../mysql_dbconfig_files/config.ini",
 				  section="midlat")
     config_info = config.read_db_config()
 
-    # make db connections and same them into a dict
+    # make db connections and save them into a dict
     conn_dict = {} 
     for rad in rad_list:
         db_name = rad + "_boxcar_" + ftype 
@@ -255,13 +255,16 @@ def main():
             conn_tmp = MySQLConnection(database=db_name, **config_info)
             conn_dict[rad] = conn_tmp
         except Exception, e:
-            logging.error(e)
+            logging.error(e, exc_info=True)
 
     # create dates, does not include the edate 
     all_dates = [sdate + dt.timedelta(days=i) for i in range((edate-sdate).days)]
 
     # loop through the dates
     for ctr_date in all_dates:
+
+        # Store multiprocesses in a list
+        procs = []
 
         # loop through the radars
         for rad in rad_list:
@@ -270,9 +273,6 @@ def main():
             tmpdir = "../data/" + rad + "_tmp/"
 
 #            worker(conn_dict[rad], rad, ctr_date, ftype, params, ffname, tmpdir)
-
-            # Store multiprocesses in a list
-            procs = []
 
             # Creat a processe
             p = mp.Process(target=worker, args=(conn_dict[rad], rad, ctr_date,
@@ -292,7 +292,7 @@ def main():
         try:
             conn_dict[rad].close()
         except Exception, e:
-            logging.error(e)
+            logging.error(e, exc_info=True)
 
     return
 
