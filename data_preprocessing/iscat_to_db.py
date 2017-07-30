@@ -310,8 +310,8 @@ def main():
     # run the code for the following radars in parallel
     #rad_list = ["hok", "hkw", "ade", "adw"]
     #rad_list = ["tig", "unw", "bpk"]
-    # rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
-    rad_list = ["bks"]
+    rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+    #rad_list = ["bks", "wal"]
 
     # create dbs (if not exist) for radars
     for rad in rad_list:
@@ -335,28 +335,29 @@ def main():
         for rad in rad_list:
             localdict = {"ftype" : ftype, "radar" : rad, "channel" : channel}
 
-            worker(rad, ctr_date, localdict, params, tmpdir=tmpdir,
-                   low_vel_iscat_event_only=low_vel_iscat_event_only,
-                   search_allbeams=search_allbeams, no_gscat=no_gscat,
-                   data_from_db=data_from_db, ffname=ffname)
+#            worker(rad, ctr_date, localdict, params, tmpdir=tmpdir,
+#                   low_vel_iscat_event_only=low_vel_iscat_event_only,
+#                   search_allbeams=search_allbeams, no_gscat=no_gscat,
+#                   data_from_db=data_from_db, ffname=ffname)
 
 
 #            cteate a process
-#            p = mp.Process(target=worker, arg=(rad, ctr_date, localdict,
-#                                               params, tmpdir=tmpdir,
-#                                               low_vel_iscat_event_only=low_vel_iscat_event_only,
-#                                               search_allbeams=search_allbeams,
-#                                               no_gscat=no_gscat,
-#                                               data_from_db=data_from_db,
-#                                               ffname=ffname))
-#            procs.append(p)
-#
-#            # run the process
-#            p.start()
-#
-#        # make sure the processes terminate
-#        for p in procs:
-#            p.join()
+            worker_args = {"tmpdir" : tmpdir,
+                           "low_vel_iscat_event_only" : low_vel_iscat_event_only,
+                           "search_allbeams" : search_allbeams,
+                           "no_gscat" : no_gscat,
+                           "data_from_db" : data_from_db,
+                           "ffname" : ffname}
+            p = mp.Process(target=worker, args=(rad, ctr_date, localdict,
+                                               params), kwargs=worker_args)
+            procs.append(p)
+
+            # run the process
+            p.start()
+
+        # make sure the processes terminate
+        for p in procs:
+            p.join()
 
     return
 
