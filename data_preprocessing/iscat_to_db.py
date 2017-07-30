@@ -176,10 +176,19 @@ class iscat(object):
         """
 
         from mysql.connector import MySQLConnection
+	import sys
+	sys.path.append("../")
+	from mysql_dbutils.db_config import db_config
         import logging
 
+	# read the db config info
+	config =  db_config(config_filename=config_filename, section=section)
+	config_info = config.read_db_config()
+
         # make db connection
-        conn = MySQLConnection(dataname=db_name, **config_info)
+        if db_name is None:
+            db_name = self.rad + "_iscat_" + self.ftype
+        conn = MySQLConnection(database=db_name, **config_info)
 	cur = conn.cursor()
 
         # loop through each radar beam
@@ -232,7 +241,9 @@ class iscat(object):
 def worker(rad, ctr_date, localdict, params, tmpdir=None,
 	   low_vel_iscat_event_only=False,
            search_allbeams=True, no_gscat=True,
-	   data_from_db=True, ffname=None):
+	   data_from_db=True,
+           config_filename="../mysql_dbconfig_files/config.ini",
+           section="midlat", db_name=None, ffname=None):
     
     import datetime as dt
     import sys
@@ -251,7 +262,9 @@ def worker(rad, ctr_date, localdict, params, tmpdir=None,
         iscat_events.join_list_as_str(sep=",")
 
         # move iscat events to db
-        iscat_events.move_to_db(conn, column_map)
+        iscat_events.move_to_db(config_filename=config_filename,
+                                section=section, db_name=db_name)
+
 #        t2 = dt.datetime.now()
 #        print ("iscat for " + rad + " has been moved to db")
 #        print ("move_to_db for " + rad + " takes " +\
