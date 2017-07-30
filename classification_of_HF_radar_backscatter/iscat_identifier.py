@@ -386,13 +386,14 @@ def read_from_db(rad, stm, etm, ftype="fitacf",
 
         # get all the table names
 	command = "SELECT table_name FROM information_schema.tables "
-	command = command + "where table_schema={db}".format(db=dbName)
+	command = command + "where TABLE_TYPE='BASE TABLE' AND TABLE_SCHEMA='{db}'".\
+                  format(db=dbName)
         try: 
             cur.execute(command)
             tbl_names = cur.fetchall()
             tbl_names = [x[0] for x in tbl_names]
         except Exception, e:
-            logging.error(e)
+            logging.error(e, exc_info=True)
 
         # get the available beam numbers 
         beam_nums = [x.split("_")[-1][2:] for x in tbl_names]
@@ -410,7 +411,7 @@ def read_from_db(rad, stm, etm, ftype="fitacf",
                 cur.execute(command)
                 rws = cur.fetchall()
             except Exception, e:
-                logging.error(e)
+                logging.error(e, exc_info=True)
             if rws:
                 data_dict = {}
                 data_dict['vel'] = [json.loads(x[0]) for x in rws]
@@ -503,6 +504,9 @@ def create_nodes(data_dict):
         Each list element is a collection of nodes for a given time_index.
 
     """
+    
+    # change NoneType entry in slist into []
+    data_dict['slist'] = [x if x is not None else [] for x in data_dict['slist']]
     
     # create nodes while excluding the rage gates below 7
     nodes = [[(i,y) for y in data_dict['slist'][i] if y >=7] \
