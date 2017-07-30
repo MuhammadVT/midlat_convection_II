@@ -58,7 +58,7 @@ class iscat(object):
         from classification_of_HF_radar_backscatter.iscat_identifier import iscat_event_searcher
         import datetime as dt
         
-        # creates class attributes
+        # create class attributes
         self.rad = localdict["radar"]
         self.ftype = localdict["ftype"]
         self.channel = localdict["channel"]
@@ -67,21 +67,23 @@ class iscat(object):
         self.search_allbeams = search_allbeams
 	self.data_from_db = data_from_db
 	self.tmpdir = tmpdir
+        self.no_gscat = no_gscat
         if self.search_allbeams:
             self.bmnum = None
         else:
             self.bmnum = bmnum 
-        self.no_gscat = no_gscat
         if ffname is None:
             self.ffname = self._construct_filename()
         else:
             self.ffname = ffname
 
         # collect the iscat events 
-        self.events = iscat_event_searcher(ctr_date, localdict, tmpdir=tmpdir
-                           params=params, low_vel_iscat_event_only=low_vel_iscat_event_only,
+        self.events = iscat_event_searcher(ctr_date, localdict, tmpdir=tmpdir,
+                           params=params,
+                           low_vel_iscat_event_only=low_vel_iscat_event_only,
                            search_allbeams=search_allbeams, bmnum=bmnum,
-                           no_gscat=no_gscat, data_from_db=data_from_db, ffname=self.ffname)
+                           no_gscat=no_gscat, data_from_db=data_from_db,
+                           ffname=self.ffname)
 
         # If there is no iscat points in an event for a day for a specific beam then
 	# the output is {bm:None}. We remove thes None type events. 
@@ -99,7 +101,8 @@ class iscat(object):
         return self.events
 
     def _construct_filename(self, basedir="../data/"):
-        """ constructs the file pull for boxcar filtered data of interest. """
+        """ constructs the file full path for
+        boxcar filtered data of interest. """
 
         import datetime as dt
 
@@ -145,8 +148,12 @@ class iscat(object):
 
             # join the elements in a list into a string
             for ky in kys:
-                self.events[bn][ky] = [sep.join([str(round(itm,2)) for itm in x])\
-                        for x in self.events[bn][ky]]
+                if ky in ["slist"]:
+                    self.events[bn][ky] = [sep.join([str(itm) for itm in x])\
+                            for x in self.events[bn][ky]]
+                elif ky in ["vel"]:
+                    self.events[bn][ky] = [sep.join([str(round(itm,2)) for itm in x])\
+                            for x in self.events[bn][ky]]
         return
     
     def move_to_db(self, config_filename="../mysql_dbconfig_files/config.ini",
@@ -169,6 +176,7 @@ class iscat(object):
         """
 
         from mysql.connector import MySQLConnection
+        import logging
 
         # make db connection
         conn = MySQLConnection(dataname=db_name, **config_info)
@@ -177,30 +185,27 @@ class iscat(object):
         # loop through each radar beam
         for bmnum in self.events.keys():
             data_dict = self.events[bmnum]
-            table_name = self.rad + "_bm" + str(bmnum)
-            td = TD(table_name, column_map)
 
             # create a table
             table_name = self.rad + "_bm" + str(bmnum)
             command = "CREATE TABLE IF NOT EXISTS {tb} (\
+                      datetime DATETIME,\
                       vel TEXT DEFAULT NULL,\
+                      slist TEXT DEFAULT NULL,\
                       rsep TINYINT(4) DEFAULT NULL,\
                       frang SMALLINT(4) DEFAULT NULL,\
                       bmazm FLOAT(7,2) DEFAULT NULL,\
-                      slist TEXT DEFAULT NULL,\
-                      datetime DATETIME,\
                       PRIMARY KEY (datetime))".format(tb=table_name)
             try:
                 cur.execute(command)
             except Exception, e:
-                logging.error(e)
-
+                logging.error(e, exc_info=True)
 
             # loop through each scan time, usually 2 minutes,
             # and write the data into table_name in db
             for i in xrange(len(data_dict['datetime'])):
-                command = "INSERT IGNORE INTO {tb} (vel, rsep, frang, bmazm, " +\
-                          "slist, datetime) VALUES (%s, %s, %s, %s, %s, %s)"
+                command = "INSERT IGNORE INTO {tb} (datetime, vel, slist, rsep, " +\
+                          "frang, bmazm) VALUES (%s, %s, %s, %s, %s, %s)"
                 command = command.format(tb=table_name)
                 try:
                     cur.execute(command, (data_dict["datetime"][i],
@@ -208,92 +213,137 @@ class iscat(object):
                                 data_dict["rsep"][i], data_dict["frang"][i],
                                 data_dict["bmazm"][i]))
                 except Exception, e:
-                    logging.error(e)
+                    logging.error(e, exc_info=True)
 
         # commit the change, once at one-day of data points
         try:
             conn.commit()
         except Exception, e:
-            logging.error(e)
+            logging.error(e, exc_info=True)
 
         # close db connection
-        conn.close()
+        try:
+            conn.close()
+        except Exception, e:
+            logging.error(e, exc_info=True)
 
-def worker(rad):
+        return
+
+def worker(rad, ctr_date, localdict, params, tmpdir=None,
+	   low_vel_iscat_event_only=False,
+           search_allbeams=True, no_gscat=True,
+	   data_from_db=True, ffname=None):
     
     import datetime as dt
     import sys
-    sys.path.append("../")
 
     # collect the iscat events 
     t1 = dt.datetime.now()
-    print "creating an iscat object from " + rad + " for " + str(ctr_date)
+    print "creating an iscat object for " + rad + " for " + str(ctr_date)
     print "searching all beams of " + rad
-    iscat_events = iscat(ctr_date, localdict,
-                         params=params, low_vel_iscat_event_only=low_vel_iscat_event_only,
-                         search_allbeams=search_allbeams, no_gscat=no_gscat, ffname=None)
-
+    iscat_events = iscat(ctr_date, localdict, tmpdir=tmpdir, params=params,
+                         low_vel_iscat_event_only=low_vel_iscat_event_only,
+                         search_allbeams=search_allbeams, data_from_db=data_from_db,
+                         no_gscat=no_gscat, ffname=ffname)
 
     if iscat_events.events is not None:
         # join a list entriy as string seperated by sep
         iscat_events.join_list_as_str(sep=",")
 
         # move iscat events to db
-        #t1 = dt.datetime.now()
         iscat_events.move_to_db(conn, column_map)
-        #t2 = dt.datetime.now()
-        #print ("move_to_db takes " + str((t2-t1).total_seconds() / 60.)) + " mins"
-        print ("iscat has been moved to db")
+#        t2 = dt.datetime.now()
+#        print ("iscat for " + rad + " has been moved to db")
+#        print ("move_to_db for " + rad + " takes " +\
+#                str((t2-t1).total_seconds() / 60.) + " mins")
     else:
-        print "iscat_events.events is None"
+        print "iscat_events.events is None, no need to move to db"
 
     t2 = dt.datetime.now()
-    print ("Finishing an iscat object took " + str((t2-t1).total_seconds() / 60.)) + " mins\n"
-
+    print ("Finishing an iscat object  for " + rad + " took " +\
+            str((t2-t1).total_seconds() / 60.) + " mins\n")
 
 def main():
+    """ Call the functions above. Acts as an example code.
+    Multiprocessing has been implemented to do parallel computing.
+    The unit process is for reading a day worth of data for a given radar"""
 
+    import datetime as dt
     import multiprocessing as mp
+    import sys
+    sys.path.append("../")
+    from mysql_dbutils import db_tools
+    import logging
 
-    rads_list = [["bks", "wal", "fhe"], ["fhw", "cve", "cvw"]]
-    #rads_list = [["fhw", "cve", "cvw"]]
-    
+    # create a log file to which any error occured between client and
+    # MySQL server communication will be written.
+    logging.basicConfig(filename="./log_files/iscat_to_db.log",
+                        level=logging.INFO)
 
     # input parameters
+    sdate = dt.datetime(2011, 1, 1)     # includes sdate
+#    sdate = dt.datetime(2016, 6, 21)     # includes sdate
+    edate = dt.datetime(2017, 1, 1)     # does not include edate
     channel = None
     params=['velocity']
     ftype = "fitacf"
-    #ftype = "fitex"
-    #low_vel_iscat_event_only=False
     low_vel_iscat_event_only=True
     search_allbeams=True
     no_gscat=True
+    data_from_db=True
+    ffname = None
+    tmpdir = None
 
-    # loop through time interval
-    for dd in range(len(stms)):
-        sdate = stms[dd]
-        edate = etms[dd]
-                
-        num_days = (edate - sdate).days + 1
-        dtm_range = [sdate + dt.timedelta(days=i) for i in xrange(num_days)]
-       
+    # run the code for the following radars in parallel
+    #rad_list = ["hok", "hkw", "ade", "adw"]
+    #rad_list = ["tig", "unw", "bpk"]
+    # rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+    rad_list = ["bks"]
+
+    # create dbs (if not exist) for radars
+    for rad in rad_list:
+        db_name = rad + "_iscat_" + ftype
+        try:
+            # create a db
+            db_tools.create_db(db_name)
+        except Exception, e:
+            logging.error(e, exc_info=True)
+    
+    # create dates, does not include the edate
+    all_dates = [sdate + dt.timedelta(days=i) for i in range((edate-sdate).days)]
+
+    # loop through the dates
+    for ctr_date in all_dates:
+
+	# store the multiprocess
+	procs = []
+
         # loop through the radars
-        for rad in rads:
+        for rad in rad_list:
             localdict = {"ftype" : ftype, "radar" : rad, "channel" : channel}
 
-            # loop through dates:
-            for ctr_date in dtm_range:
-
-                worker()
-
-    jobs = []
-    for i in range(len(rads_list)):
-        #worker(rads_list[i], season, baseLocation)
-        p = mp.Process(target=worker, args=(rads_list[i], season, baseLocation))
-        jobs.append(p)
-        p.start()
+            worker(rad, ctr_date, localdict, params, tmpdir=tmpdir,
+                   low_vel_iscat_event_only=low_vel_iscat_event_only,
+                   search_allbeams=search_allbeams, no_gscat=no_gscat,
+                   data_from_db=data_from_db, ffname=ffname)
 
 
+#            cteate a process
+#            p = mp.Process(target=worker, arg=(rad, ctr_date, localdict,
+#                                               params, tmpdir=tmpdir,
+#                                               low_vel_iscat_event_only=low_vel_iscat_event_only,
+#                                               search_allbeams=search_allbeams,
+#                                               no_gscat=no_gscat,
+#                                               data_from_db=data_from_db,
+#                                               ffname=ffname))
+#            procs.append(p)
+#
+#            # run the process
+#            p.start()
+#
+#        # make sure the processes terminate
+#        for p in procs:
+#            p.join()
 
     return
 
