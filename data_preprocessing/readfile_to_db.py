@@ -210,12 +210,13 @@ def main():
 
     # create a log file to which any error occured between client and 
     # MySQL server communication will be written
-    logging.basicConfig(filename="./log_files/boxcar_filtered_data_to_db.log",
+    logging.basicConfig(filename="./log_files/boxcar_filtered_data_to_db_bpk.log",
                         level=logging.INFO)
 
     # input parameters
-    sdate = dt.datetime(2011, 1, 1)     # includes sdate
+    sdate = dt.datetime(2015, 1, 1)     # includes sdate
 #    sdate = dt.datetime(2016, 6, 21)     # includes sdate
+#    edate = dt.datetime(2015, 1, 1)     # does not include edate
     edate = dt.datetime(2017, 1, 1)     # does not include edate
     channel = None
     params=['velocity']
@@ -224,9 +225,10 @@ def main():
 
     # run the code for the following radars in parallel
     #rad_list = ["hok", "hkw", "ade", "adw"]
-    #rad_list = ["tig", "unw", "bpk"]
+    #rad_list = ["ade", "adw"]
+    # rad_list = ["tig", "unw"]
     # rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
-    rad_list = ["cvw"]
+    rad_list = ["bpk"]
 
     # create tmpdirs to store dmap files temporarily
     for rad in rad_list:

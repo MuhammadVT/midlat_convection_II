@@ -266,7 +266,7 @@ def worker(rad, ctr_date, localdict, params, tmpdir=None,
                                 section=section, db_name=db_name)
 
 #        t2 = dt.datetime.now()
-#        print ("iscat for " + rad + " has been moved to db")
+        print ("iscat for " + rad + " has been moved to db")
 #        print ("move_to_db for " + rad + " takes " +\
 #                str((t2-t1).total_seconds() / 60.) + " mins")
     else:
@@ -290,12 +290,12 @@ def main():
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/iscat_to_db.log",
+    logging.basicConfig(filename="./log_files/iscat_to_db_tig_unw.log",
                         level=logging.INFO)
 
     # input parameters
     sdate = dt.datetime(2011, 1, 1)     # includes sdate
-#    sdate = dt.datetime(2016, 6, 21)     # includes sdate
+#    sdate = dt.datetime(2011, 8, 1)     # includes sdate
     edate = dt.datetime(2017, 1, 1)     # does not include edate
     channel = None
     params=['velocity']
@@ -308,10 +308,11 @@ def main():
     tmpdir = None
 
     # run the code for the following radars in parallel
-    #rad_list = ["hok", "hkw", "ade", "adw"]
-    #rad_list = ["tig", "unw", "bpk"]
-    rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
-    #rad_list = ["bks", "wal"]
+    #rad_list = ["hok", "hkw"]
+    #rad_list = ["ade", "adw"]
+    rad_list = ["tig", "unw"]
+    #rad_list = ["bpk"]
+    #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
 
     # create dbs (if not exist) for radars
     for rad in rad_list:
