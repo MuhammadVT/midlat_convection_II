@@ -1,0 +1,45 @@
+#########################
+# About boxcar filtered fitacf DATA files you have processed and stored in /sd-data/backup
+NOTE: I will focused on data from 01/01/2011 to 01/01/2017
+
+Northern Hemisphere:
+
+Data for bks, wal, fhe, fhw, cve, cvw are available for 01/01/2011 - 01/01/2017.
+
+Data from ade and adw are available for 01/01/2013 - 01/01/2017. 
+
+Data for hok are available for 01/01/2014 - 01/01/2017.
+
+Data for hkw available for 01/01/2015 - 01/01/2017. To be precise it starts 
+from 10/30/2014.
+
+Southern Hemisphere:
+
+Data for unw and tig are available for 01/01/2011 - 01/01/2017.
+
+Data for bpk are available for 01/01/2015 - 01/01/2017. To be precise it starts 
+from 12/01/2014.
+
+
+#########################
+# boxcar filetered data stored in MySQL db
+
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+ade, adw: 01/01/2013 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done
+bpk: 01/01/2015 - 01/01/2017, Done
+tig, unw: 01/01/2011 - 01/01/2017, Done
+
+
+#########################
+# iscat data (low_vel_iscat_event_only is set to True) stored in MySQL db
+
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - Done
+ade, adw : 01/01/2013 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done
+bpk : 01/01/2015 - 01/01/2017, Done 
+tig, unw: 01/01/2011 - 
+
+
+#########################
+# iscat data (low_vel_iscat_event_only is set to False) stored in MySQL db
