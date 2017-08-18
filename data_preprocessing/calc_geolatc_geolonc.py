@@ -7,20 +7,32 @@ from davitpy.pydarn.radar.radFov import slantRange, calcFieldPnt, calcAzOffBore
 from davitpy.pydarn.radar.radStruct import site 
 from davitpy.utils.coordUtils import coord_conv
 
-import sys
-sys.path.append("../")
-from dbtools.db.dao.DBAccessObject import Table as T, TableDescriptor as TD, ColumnTypes as CT
-from dbtools.db.connection.Connector import Connectors, Executor
 import pdb
 
 
 class latc_lonc_to_db(object):
 
-    """ calculates the center points of range-beam cells in geo coords and
-    move them into the original dopsearch db""" 
+    def __init__(self, rad, bmnum, stm, etm, coords="geo", ftype="fitacf"):
 
-    def __init__(self, rad, bmnum, stm, etm, coords="geo",
-                 ftype="fitacf", season=None, baseLocation="../data/sqlite3/"):
+        """ calculates the center points of range-beam cells of a given radar beam 
+        in geo coords and add them into the iscat db.
+
+        Parameters
+        ----------
+        rad : str
+            Three-letter radar code
+        bmnum : int
+            bmnum argument only works in search_allbeams is set to False
+        stm : datetime.datetime
+            The start time. 
+        etm : datetime.datetime
+            The end time. 
+        coords : str
+            Coordinate system, should be set to "geo"
+        ftype : str
+            SuperDARN file type 
+
+        """ 
 
         rad_id_dict = {"bks":33, "wal":32, "cve":207, "cvw":206,
                        "fhe":205, "fhw":204, "ade":209, "adw":208,
@@ -31,44 +43,71 @@ class latc_lonc_to_db(object):
         self.coords = coords
         self.stm = stm
         self.etm = etm
-        self.season = season
-        self.baseLocation = baseLocation
         self.table_name = self.rad + "_bm" + str(self.bmnum)
         self.ftype = ftype
         self.conn = self._create_dbconn()
-        self.TableDescriptor = self._create_TableDescriptor()
         self.sites = self._create_site_list()
-        #self.input_dts = self._group_db_input()
 
-    def _create_dbconn(self, dbName=None):
+    def _create_dbconn(self,config_filename="../mysql_dbconfig_files/config.ini",
+		       section="midlat", db_name=None):
 
-        # make a db connection
-        if dbName is None:
-            dbName = "dopsearch_" + self.rad + "_" + self.ftype + ".sqlite"
-        conn = Connectors(baseLocation = self.baseLocation, dbName = dbName,
-                          isInMem = False, isAutoSave = False)
+	""" creates a db connection
+
+        Parameters
+        ----------
+        config_filename: str
+            name and path of the configuration file
+        section: str, default to mysql
+            section of database configuration
+        db_name : str, default to None
+            Name of the MySQL db to which iscat data will be written
+
+	"""
+
+        from mysql.connector import MySQLConnection
+        import sys
+        sys.path.append("../")
+        from mysql_dbutils.db_config import db_config
+        import logging
+
+        # read the db config info
+        config =  db_config(config_filename=config_filename, section=section)
+        config_info = config.read_db_config()
+
+        # make db connection
+        if db_name is None:
+            db_name = self.rad + "_iscat_" + self.ftype
+	try:
+            conn = MySQLConnection(database=db_name, **config_info)
+        except Exception, e:
+            logging.error(e, exc_info=True)
+
         return conn
-
 
     def _create_site_list(self):
 
-        """ creats a list of sites for a given self.rad between self.stm and self.etm """
+        """ creats a list of sites for a given self.rad for time the period between
+        self.stm and self.etm """
 
-        connector = Connectors(baseLocation = "../data/sqlite3/", dbName = "radars.sqlite",
-                          isInMem = False, isAutoSave = False)
-        #command = '{:s}and tval>=? and tval<=? ORDER BY tval ASC'.format(command)
-        #connector.cursor.execute(command, (self.rad_id, self.stm, self.etm))
-        #rows = connector.cursor.fetchall()
+        import sqlite3
+
+        # create a sqlite3 db connection to the radar.sqlite3
+        conn = sqlite3.connect(database="../data/sqlite3/radars.sqlite",
+                               detect_types = sqlite3.PARSE_DECLTYPES)
+        cur = conn.cursor()
+
+        # select all the datetime values (tval) later than stm
         command = "SELECT tval FROM hdw WHERE id=? "
         command = '{:s}and tval>=? ORDER BY tval ASC'.format(command)
-        connector.cursor.execute(command, (self.rad_id, self.stm))
-        tvals_stm = connector.cursor.fetchall()
+        cur.execute(command, (self.rad_id, self.stm))
+        tvals_stm = cur.fetchall()
         tvals_stm = [x[0] for x in tvals_stm]
 
+        # select all the datetime values (tval) later than etm
         command = "SELECT tval FROM hdw WHERE id=? "
         command = '{:s}and tval>=? ORDER BY tval ASC'.format(command)
-        connector.cursor.execute(command, (self.rad_id, self.etm))
-        tval_etm = connector.cursor.fetchone()[0]
+        cur.execute(command, (self.rad_id, self.etm))
+        tval_etm = cur.fetchone()[0]
         indx_etm = tvals_stm.index(tval_etm)
 
         # select the tvals of interest
@@ -79,72 +118,21 @@ class latc_lonc_to_db(object):
             site_list.append(site(code=self.rad, dt=tval))
         return site_list
 
-    def _create_TableDescriptor(self):
-        """ creates a TableDescriptor object """
-
-        self.conn.cursor.execute("PRAGMA table_info(" + self.table_name + ")")
-        descriptions = self.conn.cursor.fetchall()
-        column_map = {}
-        for description in descriptions:
-            column_map[description[1]] = description[2]
-        td = TD(self.table_name, column_map) 
-
-#        self.conn.cursor.execute("SELECT sql FROM sqlite_master WHERE name='{tb}'"\
-#                                 .format(tb=self.table_name))
-#        aa = str(self.conn.cursor.fetchone()[0])
-#        sindx = aa.find("(")
-#        eindx = aa.find(")")
-#        aa = aa[sindx+1:eindx]
-#        aa = aa.split(",")
-#        column_map = {kyval.split()[0]:kyval.split()[1] for kyval in aa}
-#        td = TD(self.table_name, column_map) 
-
-        return td 
-
-#    def _group_db_input(self):
-#
-#        # select variables
-#        command = "SELECT datetime FROM (SELECT * FROM {tb} ORDER BY datetime ASC)\
-#                   GROUP BY frang, rsep".format(tb=self.table_name)
-#        #executor._execute_fetch_command()
-#        self.conn.cursor.execute(command)
-#        dts = self.conn.cursor.fetchall()
-#        dts = [d[0] for d in dts]
-#
-#        return dts 
-#
-#
-#    def add_to_db(self):
-#        
-#        sdtm = self.stm
-#
-#        for edtm in self.input_dts:
-#            command = "SELECT frang, rsep FROM {tb} WHERE (DATETIME(datetime)>'{sdtm}' and\
-#                       DATETIME(datetime)<='{edtm}')".format(tb=self.table_name,\
-#                       sdtm=str(sdtm), edtm=str(edtm))
-#            self.conn.cursor.execute(command)
-#            rows = self.conn.cursor.fetchall() 
-#            frang, rsep = rows[0]
-#            latc, lonc = calc_latc_lonc(self.sites[0], self.bmnum, frang, rsep, altitude=300.,
-#                                        elevation=None, coord_alt=0., coords="geo")
-#        
-#        #return rows
-#        return latc, lonc
 
     def add_latclonc_to_db(self):
-        """ calculates latc and lonc of each range-beam cell in 'geo' coordinates and update them
-        into the original table """
+        """ calculates latc and lonc of each range-beam cell in 'geo'
+        coordinates and update them into the original table """
         
         # add new columns
         try:
             command ="ALTER TABLE {tb} ADD COLUMN latc TEXT".format(tb=self.table_name) 
-            self.conn.cursor.execute(command)
+            self.conn.cursor().execute(command)
         except:
             # pass if the column latc exists
             pass
         try:
             command ="ALTER TABLE {tb} ADD COLUMN lonc TEXT".format(tb=self.table_name) 
-            self.conn.cursor.execute(command)
+            self.conn.cursor().execute(command)
         except:
             # pass if the column lonc exists
             pass
@@ -156,11 +144,12 @@ class latc_lonc_to_db(object):
                 edtm = self.etm
             else:
                 edtm = st.tval
-            command = "SELECT rowid, slist, vel, frang, rsep, datetime FROM {tb} WHERE (DATETIME(datetime)>'{sdtm}' and\
-                       DATETIME(datetime)<='{edtm}') ORDER BY datetime".format(tb=self.table_name,\
-                       sdtm=str(sdtm), edtm=str(edtm))
-            self.conn.cursor.execute(command)
-            rows = self.conn.cursor.fetchall() 
+            command = "SELECT rowid, slist, vel, frang, rsep, datetime\
+                       FROM {tb} WHERE (DATETIME(datetime)>'{sdtm}' and\
+                       DATETIME(datetime)<='{edtm}') ORDER BY datetime".\
+                       format(tb=self.table_name, sdtm=str(sdtm), edtm=str(edtm))
+            self.conn.cursor().execute(command)
+            rows = self.conn.cursor().fetchall() 
             if rows != []:
                 rowid, slist, vel, frang_old, rsep_old, date_time_old = rows[0]
 
@@ -174,8 +163,8 @@ class latc_lonc_to_db(object):
                         latc_all, lonc_all = calc_latc_lonc(self.sites[ii], self.bmnum, frang, rsep, 
                                                     altitude=300., elevation=None, coord_alt=0.,
                                                     coords="geo", date_time=None)
-
                         
+                        # update the _old values
                         frang_old, rsep_old = frang, rsep
 
                     # convert from string to float
@@ -197,30 +186,60 @@ class latc_lonc_to_db(object):
                     lonc = ",".join([str(round(x,2)) for x in lonc])
 
                     # update the table
-                    command = "UPDATE {tb} SET slist='{slist}', vel='{vel}',\
-                               latc='{latc}', lonc='{lonc}' WHERE rowid=={rowid}".\
-                              format(tb=self.table_name, slist=slist, vel=vel,\
-                              latc=latc, lonc=lonc, rowid=rowid)
-                    self.conn.cursor.execute(command)
+#                    command = "UPDATE {tb} SET slist='{slist}', vel='{vel}',\
+#                               latc='{latc}', lonc='{lonc}' WHERE rowid=={rowid}".\
+#                              format(tb=self.table_name, slist=slist, vel=vel,\
+#                              latc=latc, lonc=lonc, rowid=rowid)
+#                    self.conn.cursor.execute(command)
 
             # update sdtm
             sdtm = edtm
 
-        # commit the data into the db
-        self.conn._commit()
+#        # commit the data into the db
+#        self.conn.commit()
 
         # close db connection
-        self.conn._close_connection()
+        self.conn.close()
             
         return
-
 
 def calc_latc_lonc(site, bmnum, frang, rsep, altitude=300.,
                    elevation=None, coord_alt=0., coords="geo",
                    date_time=None):
-    """ calculates center lat and lon of all the gates of a given bmnum """
+
+    """ calculates center lat and lon of all the range-gates of a given bmnum
+    
+    Parameters
+    ----------
+    site : davitpy.pydarn.radar.radStruct.site object
+    bmnum : int
+	bmnum argument only works in search_allbeams is set to False
+    frang : int 
+        Distance at which the zero range-gate starts [km]
+    rsep : int
+        Range seperation [km]
+    altitude : float
+        Default to 300. [km]
+    elevation : float
+        Defalut to None, in which case it will be estimated by the algorithm.
+    coord_alt : float 
+        like altitude, but only used for conversion from geographic to
+        other coordinate systems. Default: 0.
+    date_time : datetime.datetime
+        the datetime for which the FOV is desired. Required for mag and mlt,
+        and possibly others in the future. Default: None
+    coords : str
+        Coordinate system, should be set to "geo"
+
+    Returns
+    -------
+    two lists
+        Calculated center latitudes and longitudes of range gates of a given beam
+    
+    """
     import numpy as np
 
+    # initialze papameters
     nbeams = site.maxbeam
     ngates = site.maxgate
     bmsep = site.bmsep
@@ -270,24 +289,18 @@ def main():
 
     # input parameters
     #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
-    rad_list = ["bks"]
-    #rad_list = ["wal"]
-    ftype = "fitacf"
+    rad_list = ["hok"]
     bmnum = 7
+    ftype = "fitacf"
 
     stm = dt.datetime(2012,1,1)
     etm = dt.datetime(2012,2,29)
-    #season = "winter"
-    season = None
-    baseLocation = "../data/sqlite3/"
 
-    coords = "geo"
-    ftype = "fitacf"
-
+    objs = []
     for rad in rad_list:
-        obj = latc_lonc_to_db(rad, bmnum, stm, etm, coords="geo",
-                              ftype=ftype, season=season, baseLocation=baseLocation)
-    return obj
+        obj = latc_lonc_to_db(rad, bmnum, stm, etm, coords="geo", ftype=ftype)
+        objs.append(obj)
+    return objs
 if __name__ == "__main__":
-    obj = main()
-    obj.add_latclonc_to_db()
+    objs = main()
+    #objs.add_latclonc_to_db()
