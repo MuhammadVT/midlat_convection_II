@@ -28,7 +28,7 @@ class latc_lonc_to_db(object):
         etm : datetime.datetime
             The end time. 
         coords : str
-            Coordinate system, should be set to "geo"
+            Coordinate system, so far it should only be set to "geo"
         ftype : str
             SuperDARN file type 
 
@@ -121,18 +121,32 @@ class latc_lonc_to_db(object):
 
     def add_latclonc_to_db(self):
         """ calculates latc and lonc of each range-beam cell in 'geo'
-        coordinates and update them into the original table """
+        coordinates and update them into the original table.
+        If self.table_name does not exist in the db, it will not do anything"""
+
+        import logging
         
+        # check the db connection
+        if not self.conn.is_connected():
+            self.conn.reconnect()
+        cur = self.conn.cursor(buffered=True)
+
+        # check whether self.table_name exists. If not, do nothing
+        command = "SHOW TABLES LIKE '{tb}'".format(tb=self.table_name)
+        cur.execute(command)
+        if not cur.fetchall():
+            return
+
         # add new columns
         try:
             command ="ALTER TABLE {tb} ADD COLUMN latc TEXT".format(tb=self.table_name) 
-            self.conn.cursor().execute(command)
+            cur.execute(command)
         except:
             # pass if the column latc exists
             pass
         try:
             command ="ALTER TABLE {tb} ADD COLUMN lonc TEXT".format(tb=self.table_name) 
-            self.conn.cursor().execute(command)
+            cur.execute(command)
         except:
             # pass if the column lonc exists
             pass
@@ -144,24 +158,37 @@ class latc_lonc_to_db(object):
                 edtm = self.etm
             else:
                 edtm = st.tval
-            command = "SELECT rowid, slist, vel, frang, rsep, datetime\
-                       FROM {tb} WHERE (DATETIME(datetime)>'{sdtm}' and\
-                       DATETIME(datetime)<='{edtm}') ORDER BY datetime".\
-                       format(tb=self.table_name, sdtm=str(sdtm), edtm=str(edtm))
-            self.conn.cursor().execute(command)
-            rows = self.conn.cursor().fetchall() 
+
+            # select data for the period between sdtm and edtm
+            command = "SELECT slist, vel, frang, rsep, datetime " +\
+                      "FROM {tb} WHERE datetime BETWEEN '{sdtm}' AND '{edtm}' "+\
+                      "ORDER BY datetime"
+            command = command.format(tb=self.table_name, sdtm=str(sdtm), edtm=str(edtm))
+            try:
+                cur.execute(command)
+            except Exception, e:
+                logging.error(e, exc_info=True)
+            rows = cur.fetchall() 
+
             if rows != []:
-                rowid, slist, vel, frang_old, rsep_old, date_time_old = rows[0]
+                slist, vel, frang_old, rsep_old, date_time_old = rows[0]
 
                 # calculate latc_all and lonc_all in 'geo' coords
-                latc_all, lonc_all = calc_latc_lonc(self.sites[ii], self.bmnum, frang_old, rsep_old, 
+                latc_all, lonc_all = calc_latc_lonc(self.sites[ii], self.bmnum, 
+                                                    frang_old, rsep_old, 
                                                     altitude=300., elevation=None, coord_alt=0.,
                                                     coords="geo", date_time=None)
+
+                # loop through rows 
                 for row in rows:
-                    rowid, slist, vel, frang, rsep, date_time = row
+                    slist, vel, frang, rsep, date_time = row
                     if (frang, rsep) != (frang_old, rsep_old):
-                        latc_all, lonc_all = calc_latc_lonc(self.sites[ii], self.bmnum, frang, rsep, 
-                                                    altitude=300., elevation=None, coord_alt=0.,
+                        # calculate latc_all and lonc_all in 'geo' coords if
+                        # necessary (i.e., if frang or rsep changes)
+                        latc_all, lonc_all = calc_latc_lonc(self.sites[ii],
+                                                    self.bmnum, frang, rsep, 
+                                                    altitude=300., elevation=None,
+                                                    coord_alt=0.,
                                                     coords="geo", date_time=None)
                         
                         # update the _old values
@@ -186,17 +213,20 @@ class latc_lonc_to_db(object):
                     lonc = ",".join([str(round(x,2)) for x in lonc])
 
                     # update the table
-#                    command = "UPDATE {tb} SET slist='{slist}', vel='{vel}',\
-#                               latc='{latc}', lonc='{lonc}' WHERE rowid=={rowid}".\
-#                              format(tb=self.table_name, slist=slist, vel=vel,\
-#                              latc=latc, lonc=lonc, rowid=rowid)
-#                    self.conn.cursor.execute(command)
+                    command = "UPDATE {tb} SET slist='{slist}', vel='{vel}', " +\
+                              "latc='{latc}', lonc='{lonc}' WHERE datetime = '{dtm}'"
+                    command = command.format(tb=self.table_name, slist=slist, vel=vel,\
+                                             latc=latc, lonc=lonc, dtm=date_time)
+                    try:
+                        cur.execute(command)
+                    except Exception, e:
+                        logging.error(e, exc_info=True)
 
             # update sdtm
             sdtm = edtm
 
-#        # commit the data into the db
-#        self.conn.commit()
+        # commit the data into the db
+        self.conn.commit()
 
         # close db connection
         self.conn.close()
@@ -284,23 +314,86 @@ def calc_latc_lonc(site, bmnum, frang, rsep, altitude=300.,
 
     return lat_center, lon_center
 
-# test code
-def main():
+
+def worker(rad, bmnum, stm, etm, ftype="fitacf"):
+
+    import datetime as dt
+    import sys
+
+    # create a latc_lonc_to_db object
+    t1 = dt.datetime.now()
+    print("creating an latc_lonc_to_db object for beam " + str(bmnum) + " of " +\
+          rad + " for period between " + str(stm) + " and " + str(etm))
+    obj = latc_lonc_to_db(rad, bmnum, stm, etm, coords="geo", ftype=ftype)
+
+    # calculate geolatc and geolonc and write them into a db where
+    # iscat data is stored
+    obj.add_latclonc_to_db()
+    print("geolatc and geolonc have been written to db for beam " + str(bmnum) +\
+           " of " + rad + " for period between " + str(stm) + " and " + str(etm))
+
+    t2 = dt.datetime.now()
+    print("Finishing an latc_lonc_to_db object for beam " + str(bmnum) +\
+           " of " + rad + " for period between " + str(stm) + " and " +\
+           str(etm) + " took " + str((t2-t1).total_seconds() / 60.) + " mins\n")
+
+def main(run_in_parallel=True):
+    """ Call the functions above. Acts as an example code.
+    Multiprocessing has been implemented to do parallel computing.
+    A unit process is for a radar beam (i.e. a db table)"""
+
+    import datetime as dt
+    import multiprocessing as mp
+    import sys
+    sys.path.append("../")
+    import logging
+
+    # create a log file to which any error occured between client and
+    # MySQL server communication will be written.
+    logging.basicConfig(filename="./log_files/calc_geolatc_geolonc_hok.log",
+                        level=logging.INFO)
 
     # input parameters
-    #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
-    rad_list = ["hok"]
-    bmnum = 7
+    stm = dt.datetime(2015, 1, 1)     # includes sdate
+#    stm = dt.datetime(2011, 8, 1)     # includes sdate
+    etm = dt.datetime(2017, 1, 1)     # does not include etm
     ftype = "fitacf"
 
-    stm = dt.datetime(2012,1,1)
-    etm = dt.datetime(2012,2,29)
+    # run the code for the following radars in parallel
+    rad_list = ["hok"]
+    #rad_list = ["ade", "adw"]
+    #rad_list = ["tig", "unw"]
+    #rad_list = ["bpk"]
+    #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
 
-    objs = []
+    # loop through the dates
     for rad in rad_list:
-        obj = latc_lonc_to_db(rad, bmnum, stm, etm, coords="geo", ftype=ftype)
-        objs.append(obj)
-    return objs
-if __name__ == "__main__":
-    objs = main()
-    #objs.add_latclonc_to_db()
+
+        # store the multiprocess
+        procs = []
+
+        # loop through the radars
+        for bm in range(24):
+	    if run_in_parallel:
+
+		# cteate a process
+                worker_kwargs = {"ftype":ftype}
+		p = mp.Process(target=worker, args=(rad, bm, stm, etm),
+                               kwargs=worker_kwargs)
+		procs.append(p)
+
+		# run the process
+		p.start()
+
+	    else:
+                worker(rad, bm, stm, etm, ftype=ftype)
+
+	if run_in_parallel:
+	    # make sure the processes terminate
+	    for p in procs:
+		p.join()
+
+    return
+
+if __name__ == '__main__':
+    main(run_in_parallel=True)
