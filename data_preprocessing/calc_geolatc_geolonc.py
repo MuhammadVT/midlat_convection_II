@@ -341,6 +341,8 @@ def worker(rad, bmnum, stm, etm, ftype="fitacf"):
     print("Finishing an latc_lonc_to_db object for beam " + str(bmnum) +\
            " of " + rad + " for period between " + str(stm) + " and " +\
            str(etm) + " took " + str((t2-t1).total_seconds() / 60.) + " mins\n")
+    
+    return
 
 def main(run_in_parallel=True):
     """ Call the functions above. Acts as an example code.
