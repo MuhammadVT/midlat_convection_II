@@ -139,16 +139,16 @@ class latc_lonc_to_db(object):
 
         # add new columns
         try:
-            command ="ALTER TABLE {tb} ADD COLUMN latc TEXT".format(tb=self.table_name) 
+            command ="ALTER TABLE {tb} ADD COLUMN geo_latc TEXT".format(tb=self.table_name) 
             cur.execute(command)
         except:
-            # pass if the column latc exists
+            # pass if the column geo_latc exists
             pass
         try:
-            command ="ALTER TABLE {tb} ADD COLUMN lonc TEXT".format(tb=self.table_name) 
+            command ="ALTER TABLE {tb} ADD COLUMN geo_lonc TEXT".format(tb=self.table_name) 
             cur.execute(command)
         except:
-            # pass if the column lonc exists
+            # pass if the column geo_lonc exists
             pass
 
         # iterate through tvals of the self.sites
@@ -214,7 +214,7 @@ class latc_lonc_to_db(object):
 
                     # update the table
                     command = "UPDATE {tb} SET slist='{slist}', vel='{vel}', " +\
-                              "latc='{latc}', lonc='{lonc}' WHERE datetime = '{dtm}'"
+                              "geo_latc='{latc}', geo_lonc='{lonc}' WHERE datetime = '{dtm}'"
                     command = command.format(tb=self.table_name, slist=slist, vel=vel,\
                                              latc=latc, lonc=lonc, dtm=date_time)
                     try:
