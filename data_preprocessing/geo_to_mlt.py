@@ -180,6 +180,11 @@ def geo_to_mlt(rad, bmnum, stm=None, etm=None, ftype="fitacf",
                                WHERE datetime = '{dtm}'"
                     command = command.format(tb=table_name, latc=latc, lonc=lonc,
                                      azm_txt=azm_txt, dtm=date_time)
+
+                # check db connection before updating
+                if not conn.is_connected():
+                    conn.reconnect()
+                # do the update
                 try:
                     cur.execute(command)
                 except Exception, e:
