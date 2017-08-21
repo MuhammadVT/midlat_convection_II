@@ -57,10 +57,10 @@ class latc_lonc_to_db(object):
         ----------
         config_filename: str
             name and path of the configuration file
-        section: str, default to mysql
+        section: str, default to "midlat" 
             section of database configuration
         db_name : str, default to None
-            Name of the MySQL db to which iscat data will be written
+            Name of the MySQL db to which iscat data has been written
 
 	"""
 
