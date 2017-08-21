@@ -226,7 +226,10 @@ class latc_lonc_to_db(object):
             sdtm = edtm
 
         # commit the data into the db
-        self.conn.commit()
+        try:
+            self.conn.commit()
+        except Exception, e:
+            logging.error(e, exc_info=True)
 
         # close db connection
         self.conn.close()
