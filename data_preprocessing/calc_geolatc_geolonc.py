@@ -254,7 +254,9 @@ def calc_latc_lonc(site, bmnum, frang, rsep, altitude=300.,
         Defalut to None, in which case it will be estimated by the algorithm.
     coord_alt : float 
         like altitude, but only used for conversion from geographic to
-        other coordinate systems. Default: 0.
+        other coordinate systems.
+        Default: 0, but set it to an appropriate float number for coord conversion
+        at certain altitude.
     date_time : datetime.datetime
         the datetime for which the FOV is desired. Required for mag and mlt,
         and possibly others in the future. Default: None
