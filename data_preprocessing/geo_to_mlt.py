@@ -8,24 +8,49 @@ rad_loc_dict = {"bks" : (37.10, -77.95), "wal" : (37.93, -75.47),
 	 	"bpk" : (‑34.62, 138.46)}
 
 def geo_to_mlt(rad, bmnum, stm=None, etm=None, ftype="fitacf",
-               dbName=None, baseLocation="../data/sqlite3/",
-               t_c_alt=0., stay_in_geo=False):
-    """ converts latc and lonc from geo to mlt hours. Also
+	       config_filename="../mysql_dbconfig_files/config.ini",
+	       section="midlat", db_name=None,
+               t_c_alt=300., stay_in_geo=False):
+
+    """ converts latc and lonc from geo to mlat-mlt coords. Also
     calcuates the azmimuthal velocity angle relative to the magnetic pole
 
+    Parameters
+    ----------
+    rad : str
+        Three-letter radar code
+    bmnum : int
+        Radar beam
+    stm : datetime.datetime
+        The start time.
+        Default to None, in which case takes the earliest in db.
+    etm : datetime.datetime
+        The end time.
+        Default to None, in which case takes the latest time in db.
+    ftype : str
+        SuperDARN file type
+    config_filename: str
+	name and path of the configuration file
+    section: str, default to "midlat"
+	section of database configuration
+    db_name : str, default to None
+	Name of the MySQL db to which iscat data has been written
+    t_c_alt : float
+        The altitude need to calculate the target coords (in this case, mlat-mlt coords)
     stay_in_geo : bool
         if set to True no coord conversion is done. Calculation would be in geo
+
+    Returns
+    -------
+    Nothing
     """
 
     from davitpy.utils.coordUtils import coord_conv
+    import datetime as dt
+    from datetime import date
+    from mysql.connector import MySQLConnection
     import sys
     sys.path.append("../")
-    from dbtools.db.connection.Connector import Connectors
-    from datetime import date
-    import datetime as dt
-    import pdb
-
-    from mysql.connector import MySQLConnection
     from mysql_dbutils.db_config import db_config
     import logging
 
@@ -40,36 +65,39 @@ def geo_to_mlt(rad, bmnum, stm=None, etm=None, ftype="fitacf",
 	conn = MySQLConnection(database=db_name, **config_info)
     except Exception, e:
 	logging.error(e, exc_info=True)
-
     cur = conn.cursor(buffered=True)
 
+    # check whether table_name exists. If not, do nothing
     table_name = rad + "_bm" + str(bmnum)
+    command = "SHOW TABLES LIKE '{tb}'".format(tb=table_name)
+    cur.execute(command)
+    if not cur.fetchall():
+        return
 
     # add new columns
     try:
-	command ="ALTER TABLE {tb} ADD COLUMN latc TEXT".format(tb=self.table_name)
+	command ="ALTER TABLE {tb} ADD COLUMN mlatc TEXT".format(tb=table_name)
 	cur.execute(command)
     except:
-	# pass if the column latc exists
+	# pass if the column mlatc exists
 	pass
     try:
-	command ="ALTER TABLE {tb} ADD COLUMN lonc TEXT".format(tb=self.table_name)
+	command ="ALTER TABLE {tb} ADD COLUMN mlonc TEXT".format(tb=table_name)
 	cur.execute(command)
     except:
-	# pass if the column lonc exists
+	# pass if the column mlonc exists
 	pass
     try:
-
         # add the azmimuthal velocity angle (azm) relative to the magnetic pole
         command ="ALTER TABLE {tb} ADD COLUMN azm TEXT".format(tb=table_name) 
         conn.cursor.execute(command)
     except:
-        # pass if the column latc exists
+        # pass if the column azm exists
         pass
 
     # do the convertion to all the data in db if stm and etm are all None
-    if stm is not None and etm is not None:
-        command = "SELECT rowid, latc, lonc, bmazm, datetime FROM {tb} WHERE (DATETIME(datetime)>='{sdtm}' and\
+    if (stm is not None) and (etm is not None):
+        command = "SELECT latc, lonc, bmazm, datetime FROM {tb} WHERE (DATETIME(datetime)>='{sdtm}' and\
                    DATETIME(datetime)<='{edtm}') ORDER BY datetime".format(tb=table_name,\
                    sdtm=str(stm), edtm=str(etm))
 
@@ -130,6 +158,9 @@ def geo_to_mlt(rad, bmnum, stm=None, etm=None, ftype="fitacf",
 
     # close db connection
     conn.connection.close()
+
+    return
+
 def geobmazm_to_magbmazm(rad, bmazm, latc, lonc, alt=300., time=None, stay_in_geo=False):
     """ calculates the LOS vel direction in mag coords at each range-beam cell
    
@@ -215,7 +246,12 @@ def main():
     for rad in rad_list:
         geo_to_mlt(rad, bmnum, stm=None, etm=None, ftype="fitacf",
                    dbName=None, baseLocation="../data/sqlite3/",
-                   t_c_alt=0., stay_in_geo=stay_in_geo)
+                   t_c_alt=300., stay_in_geo=stay_in_geo)
 if __name__ == "__main__":
     main()
+
+
+
+
+
 
