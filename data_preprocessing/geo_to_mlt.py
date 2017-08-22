@@ -81,8 +81,17 @@ def geo_to_mlt(rad, bmnum, stm=None, etm=None, ftype="fitacf",
     if not cur.fetchall():
         return
 
-    # add new columns for mlatc and mlonc
-    if not stay_in_geo:
+    # add new columns for geo_ltc (local time in geo) 
+    if stay_in_geo:
+        try:
+            command ="ALTER TABLE {tb} ADD COLUMN geo_ltc TEXT".format(tb=table_name)
+            cur.execute(command)
+        except:
+            # pass if the column geo_ltc exists
+            pass
+
+    # add new columns for mlatc and mltc
+    else:
         try:
             command ="ALTER TABLE {tb} ADD COLUMN mlatc TEXT".format(tb=table_name)
             cur.execute(command)
@@ -90,10 +99,10 @@ def geo_to_mlt(rad, bmnum, stm=None, etm=None, ftype="fitacf",
             # pass if the column mlatc exists
             pass
         try:
-            command ="ALTER TABLE {tb} ADD COLUMN mlonc TEXT".format(tb=table_name)
+            command ="ALTER TABLE {tb} ADD COLUMN mltc TEXT".format(tb=table_name)
             cur.execute(command)
         except:
-            # pass if the column mlonc exists
+            # pass if the column mltc exists
             pass
     # add a new column for LOC velocity azm angle (in degrees)
     try:
@@ -166,17 +175,17 @@ def geo_to_mlt(rad, bmnum, stm=None, etm=None, ftype="fitacf",
                 lonc = [(round(x,2))%360 for x in lonc]
 
                 # convert to comma seperated text
-                latc =",".join([str(x) for x in latc])
-                lonc =",".join([str(round(x,2)) for x in lonc])
+                latc =",".join([str(round(x,2)) for x in latc])
+                lonc =",".join([str(x) for x in lonc])
                 
                 # update into the db
                 if stay_in_geo:
-                    command = "UPDATE {tb} SET geo_lonc='{lonc}', geo_azm='{azm_txt}'\
+                    command = "UPDATE {tb} SET geo_ltc='{lonc}', geo_azm='{azm_txt}'\
                                WHERE datetime = '{dtm}'"
                     command = command.format(tb=table_name, lonc=lonc,
                                      azm_txt=azm_txt, dtm=date_time)
                 else:
-                    command = "UPDATE {tb} SET mlatc='{latc}', mlonc='{lonc}', mag_azm='{azm_txt}'\
+                    command = "UPDATE {tb} SET mlatc='{latc}', mltc='{lonc}', mag_azm='{azm_txt}'\
                                WHERE datetime = '{dtm}'"
                     command = command.format(tb=table_name, latc=latc, lonc=lonc,
                                      azm_txt=azm_txt, dtm=date_time)
