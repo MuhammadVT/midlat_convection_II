@@ -257,6 +257,12 @@ def geobmazm_to_magbmazm(rad, bmazm, latc, lonc, alt=300.,
         # calculate the los vel angle in geo using spherical trigonometry. Then angles are defined
         # in the same way as those in spherical trigonometry section in mathworld
         #B = np.deg2rad(np.abs(bmazm))
+
+        # catch nan value
+        if np.isnan(latc[i]):
+            azm_lst.append(np.nan)
+            continue
+
         b_prime = np.deg2rad(90. - latc[i])
         a_prime = np.deg2rad(90. - rad_lat)
         AB_dellon = np.deg2rad(np.abs(lonc[i]-rad_lon))
