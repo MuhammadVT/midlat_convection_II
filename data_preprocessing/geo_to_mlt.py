@@ -120,7 +120,7 @@ def geo_to_mlt(rad, bmnum, stm=None, etm=None, ftype="fitacf",
     if (stm is not None) and (etm is not None):
         command = "SELECT geo_latc, geo_lonc, bmazm, datetime FROM {tb} " +\
                   "WHERE datetime BETWEEN '{sdtm}' AND '{edtm}' ORDER BY datetime"
-        command.format(tb=table_name, sdtm=stm, edtm=etm)
+        command = command.format(tb=table_name, sdtm=stm, edtm=etm)
 
     # do the convertion to the data between stm and etm if any of them is None
     else:
