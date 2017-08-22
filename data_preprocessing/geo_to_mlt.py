@@ -90,30 +90,30 @@ def geo_to_mlt(rad, bmnum, stm=None, etm=None, ftype="fitacf",
             # pass if the column geo_ltc exists
             pass
 
-    # add new columns for mlatc and mltc
+    # add new columns for mag_latc and mag_ltc
     else:
         try:
-            command ="ALTER TABLE {tb} ADD COLUMN mlatc TEXT".format(tb=table_name)
+            command ="ALTER TABLE {tb} ADD COLUMN mag_latc TEXT".format(tb=table_name)
             cur.execute(command)
         except:
-            # pass if the column mlatc exists
+            # pass if the column mag_latc exists
             pass
         try:
-            command ="ALTER TABLE {tb} ADD COLUMN mltc TEXT".format(tb=table_name)
+            command ="ALTER TABLE {tb} ADD COLUMN mag_ltc TEXT".format(tb=table_name)
             cur.execute(command)
         except:
-            # pass if the column mltc exists
+            # pass if the column mag_ltc exists
             pass
     # add a new column for LOC velocity azm angle (in degrees)
     try:
-        # add the azmimuthal velocity angle (azm) relative to the magnetic (or geo) pole
+        # add the azmimuthal velocity angle (azmc) relative to the magnetic (or geo) pole
         if stay_in_geo:
-            command ="ALTER TABLE {tb} ADD COLUMN geo_azm TEXT".format(tb=table_name) 
+            command ="ALTER TABLE {tb} ADD COLUMN geo_azmc TEXT".format(tb=table_name) 
         else:
-            command ="ALTER TABLE {tb} ADD COLUMN mag_azm TEXT".format(tb=table_name) 
+            command ="ALTER TABLE {tb} ADD COLUMN mag_azmc TEXT".format(tb=table_name) 
         cur.execute(command)
     except:
-        # pass if the column geo_azm or mag_azm exists
+        # pass if the column geo_azmc or mag_azmc exists
         pass
 
     # do the convertion to all the data in db if stm and etm are all None
@@ -180,12 +180,12 @@ def geo_to_mlt(rad, bmnum, stm=None, etm=None, ftype="fitacf",
                 
                 # update into the db
                 if stay_in_geo:
-                    command = "UPDATE {tb} SET geo_ltc='{lonc}', geo_azm='{azm_txt}'\
+                    command = "UPDATE {tb} SET geo_ltc='{lonc}', geo_azmc='{azm_txt}'\
                                WHERE datetime = '{dtm}'"
                     command = command.format(tb=table_name, lonc=lonc,
                                      azm_txt=azm_txt, dtm=date_time)
                 else:
-                    command = "UPDATE {tb} SET mlatc='{latc}', mltc='{lonc}', mag_azm='{azm_txt}'\
+                    command = "UPDATE {tb} SET mag_latc='{latc}', mag_ltc='{lonc}', mag_azmc='{azm_txt}'\
                                WHERE datetime = '{dtm}'"
                     command = command.format(tb=table_name, latc=latc, lonc=lonc,
                                      azm_txt=azm_txt, dtm=date_time)
