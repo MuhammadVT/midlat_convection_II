@@ -1,7 +1,7 @@
 class grids(object):
 
     def __init__(self, lat_min=50, lat_max=90, dlat=1, half_dlat_offset=False):
-        """ This class is used to create lat-lon-azm grids on a map.
+        """ This class is used to create lat-lon-azm bins on a map.
 
         Parameters
         ----------
@@ -50,7 +50,9 @@ class grids(object):
 
     def _create_lonbins(self):
         """ creates longitudinal bins """
+
         import numpy as np
+
         lon_bins = []
         center_lons = []      # a list of lists of lons
         for i in range(len(self.center_lats)):
@@ -64,62 +66,131 @@ class grids(object):
         
 
 def bin_to_grid(rad, bmnum, stm=None, etm=None, ftype="fitacf",
-               dbName=None, baseLocation="../data/sqlite3/"):
-    """ bins the data into mlat-mlt-azm grid
+		coords = "mlt",
+                config_filename="../mysql_dbconfig_files/config.ini",
+                section="midlat", db_name=None):
+
+    """ bins the data into mlat-mlt-azm.
+
+    Parameters
+    ----------
+    rad : str
+        Three-letter radar code
+    bmnum : int
+        Radar beam
+    stm : datetime.datetime
+        The start time.
+        Default to None, in which case takes the earliest in db.
+    etm : datetime.datetime
+        The end time.
+        Default to None, in which case takes the latest time in db.
+        NOTE: if stm is None then etm should also be None, and vice versa.
+    ftype : str
+        SuperDARN file type
+    coords : str
+        Coordinates in which the binning process takes place.
+        Default to "mlt. Can be "geo" as well. 
+    config_filename: str
+        name and path of the configuration file
+    section: str, default to "midlat"
+        section of database configuration
+    db_name : str, default to None
+        Name of the MySQL db to which iscat data has been written
+
     Note
     ----
-        0 gazmc directs towards magnetic north. 180 gazmc directs towards south.
-        gazmc spans from 5 - 355 degrees. 
+        0 xxx_gazmc directs towards magnetic (or geo) north. 180 gazmc directs towards south.
+        gazmc (gridded azimuthal center) spans from 5 - 355 degrees. 
     
     """
 
+    import numpy as np
+    import datetime as dt
+    from mysql.connector import MySQLConnection
     import sys
     sys.path.append("../")
-    from dbtools.db.connection.Connector import Connectors
-    import numpy as np
+    from mysql_dbutils.db_config import db_config
+    import logging
+
 
     # create grid points
     grds = grids(lat_min=35, lat_max=90, dlat=1, half_dlat_offset=False)
 
-    # make a db connection
-    if dbName is None:
-        dbName = "dopsearch_" + rad + "_" + ftype + ".sqlite"
-    conn = Connectors(baseLocation = baseLocation, dbName = dbName,
-                          isInMem = False, isAutoSave = False)
+    # read the db config info
+    config =  db_config(config_filename=config_filename, section=section)
+    config_info = config.read_db_config()
 
+    # make db connection
+    if db_name is None:
+        db_name = rad + "_iscat_" + ftype
+    try:
+        conn = MySQLConnection(database=db_name, **config_info)
+    except Exception, e:
+        logging.error(e, exc_info=True)
+    cur = conn.cursor(buffered=True)
+
+    # check whether table_name exists. If not, do nothing
     table_name = rad + "_bm" + str(bmnum)
+    command = "SHOW TABLES LIKE '{tb}'".format(tb=table_name)
+    cur.execute(command)
+    if not cur.fetchall():
+        return
 
     # add new columns
+    if coords == "mlt":
+        col_glatc = "mag_glatc"   # glatc -> gridded latitude center
+        col_gltc = "mag_gltc"   # mlt hour in degrees
+        col_gazmc = "mag_gazmc"   # gazmc -> gridded azimuthal center
+    if coords == "geo":
+        col_glatc = "geo_glatc"
+        col_gltc = "geo_gltc"    # local time in degrees
+        col_gazmc = "geo_gazmc"
     try:
-        command ="ALTER TABLE {tb} ADD COLUMN glatc TEXT".format(tb=table_name) 
+        command ="ALTER TABLE {tb} ADD COLUMN {glatc} TEXT".format(tb=table_name, glatc=col_glatc) 
         conn.cursor.execute(command)
     except:
-        # pass if the column latc exists
+        # pass if the column glatc exists
         pass
     try:
-        command ="ALTER TABLE {tb} ADD COLUMN glonc TEXT".format(tb=table_name) 
+        command ="ALTER TABLE {tb} ADD COLUMN {glonc} TEXT".format(tb=table_name, glonc=col_gltc) 
         conn.cursor.execute(command)
     except:
-        # pass if the column lonc exists
+        # pass if the column gltc exists
         pass
     try:
-        command ="ALTER TABLE {tb} ADD COLUMN gazmc TEXT".format(tb=table_name) 
+        command ="ALTER TABLE {tb} ADD COLUMN {gazmc} TEXT".format(tb=table_name, gazmc=col_gazmc) 
         conn.cursor.execute(command)
     except:
-        # pass if the column latc exists
+        # pass if the column gazmc exists
         pass
+
+
 
     # do the convertion to all the data in db if stm and etm are all None
-    if stm is not None and etm is not None:
-        command = "SELECT rowid, latc, lonc, azm, datetime FROM {tb} WHERE (DATETIME(datetime)>='{stm}' and\
-                   DATETIME(datetime)<='{etm}') ORDER BY datetime".format(tb=table_name,\
-                   stm=str(stm), etm=str(etm))
+    if coords == "mlt":
+	col_latc = "mag_latc"
+	col_ltc = "mag_ltc"
+	col_azmc = "mag_azmc"
+    if coords == "geo":
+	col_latc = "geo_latc"
+	col_ltc = "geo_ltc"
+	col_azmc = "geo_azmc"
 
-    # do the convertion to the data between stm and etm if they are not None
+    if (stm is not None) and (etm is not None):
+        command = "SELECT {latc}, {lonc}, {azm}, datetime FROM {tb} " +\
+                  "WHERE datetime BETWEEN '{sdtm}' AND '{edtm}' ORDER BY datetime"
+        command.format(tb=table_name, sdtm=stm, edtm=etm,
+			latc=col_latc, lonc=col_ltc, azm=col_azmc)
+
+    # do the convertion to the data between stm and etm if any of them is None
     else:
-        command = "SELECT rowid, latc, lonc, azm, datetime FROM {tb} ORDER BY datetime".format(tb=table_name,\
-                   sdtm=str(stm), edtm=str(etm))
-    conn.cursor.execute(command)
+        command = "SELECT {latc}, {lonc}, {azm}, datetime FROM {tb} ORDER BY datetime".\
+		  format(tb=table_name, latc=col_latc, lonc=col_ltc, azm=col_azmc)
+
+    try:
+        cur.execute(command)
+    except Exception, e:
+        logging.error(e, exc_info=True)
     rows = conn.cursor.fetchall() 
 
     # do the conversion row by row
@@ -157,34 +228,130 @@ def bin_to_grid(rad, bmnum, stm=None, etm=None, ftype="fitacf",
                 gazmc =",".join([str(x) for x in gazmc])
 
                 # update the table
-                command = "UPDATE {tb} SET glatc='{glatc}', glonc='{glonc}', gazmc='{gazmc}'\
-                          WHERE rowid=={rowid}".format(tb=table_name, glatc=glatc,\
-                                                       glonc=glonc, gazmc=gazmc, rowid=rowid)
-                conn.cursor.execute(command)
+		if coords == "mlt":
+		    command = "UPDATE {tb} SET mag_glatc='{glatc}', " +\
+			      "mag_gltc='{glonc}', mag_gazmc='{gazmc}' " +\
+			      "WHERE datetime = '{dtm}'"
+		if coords == "geo":
+		    command = "UPDATE {tb} SET geo_glatc='{glatc}', " +\
+			      "geo_gltc='{glonc}', geo_gazmc='{gazmc}' " +\
+			      "WHERE datetime = '{dtm}'"
+		command.format(tb=table_name, glatc=col_glatc,
+			       glonc=col_gltc, gazmc=col_gazmc, dtm=date_time)
 
-        # commit the data into the db
-        conn._commit()
+                # check db connection before updating
+                if not conn.is_connected():
+                    conn.reconnect()
+		# update
+                cur.execute(command)
+
+        
+        # check db connection
+        if not conn.is_connected():
+            conn.reconnect()
+
+        # commit the results
+        try:
+            conn.commit()
+        except Exception, e:
+            logging.error(e, exc_info=True)
+
     # close the db connection
-    conn.connection.close()
+    conn.close()
     return
 
-# test code
-def main():
+def worker(rad, bmnum, stm=None, etm=None, ftype="fitacf", coords="mlt",
+	   config_filename="../mysql_dbconfig_files/config.ini",
+           section="midlat", db_name=None):
+    """ A worker function to be used for parallel computing """
 
     import datetime as dt
-    # input parameters
-    #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
-    rad_list = ["bks"]
-    #rad_list = ["wal"]
-    ftype = "fitacf"
-    bmnum = 7
-    stm = dt.datetime(2012,1,1)
-    etm = dt.datetime(2012,1,31)
-    ftype = "fitacf"
 
-    for rad in rad_list:
-        bin_to_grid(rad, bmnum, stm=stm, etm=etm, ftype=ftype, dbName=None)
+    if db_name is None:
+        db_name = rad + "_iscat_" + ftype
+
+    # start running geo_to_mlt
+    t1 = dt.datetime.now()
+    if coords=="geo":
+        print("start binning in geo coords. for beam " + str(bmnum) + " of " +\
+              rad + " for period between " + str(stm) + " and " + str(etm))
+    elif coords=="mlt":
+        print("start binnng in MLAT-MLT coords. for beam " + str(bmnum) + " of " +\
+              rad + " for period between " + str(stm) + " and " + str(etm))
+    bin_to_grid(rad, bmnum, stm=stm, etm=etm, ftype=ftype,
+		coords=coords, config_filename=config_filename,
+                section=section, db_name=db_name)
+    print("Binned values have been written to db for beam " + str(bmnum) +\
+           " of " + rad + " for period between " + str(stm) + " and " + str(etm))
+
+    t2 = dt.datetime.now()
+    print("Finishing binning for beam " + str(bmnum) +\
+           " of " + rad + " for period between " + str(stm) + " and " +\
+           str(etm) + " took " + str((t2-t1).total_seconds() / 60.) + " mins\n")
+
     return
-if __name__ == "__main__":
-    main()
 
+def main(run_in_parallel=True):
+    """ Call the functions above. Acts as an example code.
+    Multiprocessing has been implemented to do parallel computing.
+    A unit process is for a radar beam (i.e. a db table)"""
+
+    import datetime as dt
+    import multiprocessing as mp
+    import logging
+    
+    # create a log file to which any error occured between client and
+    # MySQL server communication will be written.
+    logging.basicConfig(filename="./log_files/geo_to_mlt_hok.log",
+                        level=logging.INFO)
+    
+    # input parameters
+    stm = None 
+    etm = None 
+    ftype = "fitacf"
+    coords="mlt"         # set this to "geo" if you want to remain in "geo" coords
+    db_name = None       # if set to None default iscat db would be read. 
+    
+    # run the code for the following radars in parallel
+    rad_list = ["hok"]
+    #rad_list = ["ade", "adw"]
+    #rad_list = ["tig", "unw"]
+    #rad_list = ["bpk"]
+    #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+    
+    # loop through the dates
+    for rad in rad_list:
+        
+        # store the multiprocess
+        procs = []
+        
+        # loop through the radars
+        for bm in range(24):
+
+            if run_in_parallel:
+                # cteate a process
+                worker_kwargs = {"stm":stm, "etm":etm, "ftype":ftype,
+				 "coords":coords,
+                                 "config_filename":"../mysql_dbconfig_files/config.ini",
+                                 "section":"midlat", "db_name":db_name}
+                p = mp.Process(target=worker, args=(rad, bm),
+                               kwargs=worker_kwargs)
+                procs.append(p)
+                
+                # run the process
+                p.start()
+            else:
+                worker(rad, bm, stm=stm, etm=etm, ftype=ftype,
+		       coords=coords,
+                       config_filename="../mysql_dbconfig_files/config.ini",
+                       section="midlat", db_name=db_name)
+
+        if run_in_parallel:
+            # make sure the processes terminate
+            for p in procs:
+                p.join()
+
+    return
+
+if __name__ == "__main__":
+    main(run_in_parallel=False)
