@@ -247,13 +247,15 @@ def bin_to_grid(rad, bmnum, stm=None, etm=None, ftype="fitacf",
 		command = command.format(tb=table_name, glatc=glatc,
                                          glonc=glonc, gazmc=gazmc, dtm=date_time)
 
-                pdb.set_trace()
-
                 # check db connection before updating
                 if not conn.is_connected():
                     conn.reconnect()
 		# update
-                cur.execute(command)
+                try:
+                    cur.execute(command)
+                except Exception, e:
+                    logging.error(e, exc_info=True)
+
         
         # check db connection
         if not conn.is_connected():
@@ -339,7 +341,8 @@ def main(run_in_parallel=True):
         procs = []
         
         # loop through the radars
-        for bm in range(24):
+        for bm in [15]:
+        #for bm in range(24):
 
             if run_in_parallel:
                 # cteate a process
