@@ -72,6 +72,27 @@ class grids(object):
         return lon_bins, center_lons 
         
 
+def return_nan_if_IndexError(data, index):
+    """ returns np.nan if index is out of range of data,
+    else returns data[index].
+
+    Parameters
+    ----------
+    data : list or np.array
+    index : int
+
+    Returns
+    data[index] or np.nan
+    
+    """
+    import numpy as np
+    try:
+        out = data[index]
+    except IndexError:
+        out = np.nan
+
+    return out
+
 def bin_to_grid(rad, bmnum, stm=None, etm=None, ftype="fitacf",
 		coords = "mlt", hemi="north",
                 config_filename="../mysql_dbconfig_files/config.ini",
@@ -216,19 +237,37 @@ def bin_to_grid(rad, bmnum, stm=None, etm=None, ftype="fitacf",
                 # grid latc
                 indx_latc = np.digitize(latc, grds.lat_bins)
                 indx_latc = [x-1 for x in indx_latc]
-                glatc = [grds.center_lats[x] for x in indx_latc]
+                #glatc = [grds.center_lats[x] for x in indx_latc]
+
+                # NOTE: the following way of using return_nan_if_IndexError
+                # avoids nan in latc
+                glatc = [return_nan_if_IndexError(grds.center_lats, x) for x in indx_latc]
 
                 # grid lonc
-                indx_lonc = [np.digitize(lonc[i], grds.lon_bins[indx_latc[i]]) 
-                             for i in range(len(lonc))]
-                indx_lonc = [x-1 for x in indx_lonc]
-                glonc = [grds.center_lons[indx_latc[i]][indx_lonc[i]]\
-                         for i in range(len(lonc))]
+                #indx_lonc = [np.digitize(lonc[i], grds.lon_bins[indx_latc[i]]) 
+                #             for i in range(len(lonc))]
+                #indx_lonc = [x-1 for x in indx_lonc]
+                #glonc = [grds.center_lons[indx_latc[i]][indx_lonc[i]]\
+                #         for i in range(len(lonc))]
+
+                # NOTE: the following way avoids nan in lonc
+                glonc = []
+                for i in range(len(lonc)):
+                    try:
+                        indx_lonc = np.digitize(lonc[i], grds.lon_bins[indx_latc[i]]) 
+                        indx_lonc = indx_lonc - 1
+                        glonc.append(grds.center_lons[indx_latc[i]][indx_lonc])
+                    except IndexError:
+                        glonc.append(np.nan)
 
                 # grid azm
                 indx_azmc = np.digitize(azm, grds.azm_bins)
                 indx_azmc = [x-1 for x in indx_azmc]
-                gazmc = [grds.center_azms[x] for x in indx_azmc]
+                #gazmc = [grds.center_azms[x] for x in indx_azmc]
+
+                # NOTE: the following way of using return_nan_if_IndexError
+                # avoids nan in azm
+                gazmc = [return_nan_if_IndexError(grds.center_azms,x) for x in indx_azmc]
 
                 # convert to comma seperated text
                 glatc =",".join([str(x) for x in glatc])
@@ -341,8 +380,7 @@ def main(run_in_parallel=True):
         procs = []
         
         # loop through the radars
-        for bm in [15]:
-        #for bm in range(24):
+        for bm in range(24):
 
             if run_in_parallel:
                 # cteate a process
@@ -370,4 +408,4 @@ def main(run_in_parallel=True):
     return
 
 if __name__ == "__main__":
-    main(run_in_parallel=False)
+    main(run_in_parallel=True)
