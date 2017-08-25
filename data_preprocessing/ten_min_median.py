@@ -81,18 +81,23 @@ def ten_min_median(rad, stm, etm, ftype="fitacf",
     # create a table that combines all the beams of a radar
     if coords == "mlt":
         command = "CREATE TABLE IF NOT EXISTS {tb}" +\
-                  "(vel float(9,2) DEFAULT NULL," +\
-                  " mag_glatc float(7,2) DEFAULT NULL," +\
-                  " mag_gltc float(8,2) DEFAULT NULL," +\
-                  " mag_gazmc TINYINT(5) DEFAULT NULL," +\
-                  " datetime DATETIME DEFAULT NULL)"
+                  "(vel float(9,2)," +\
+                  " mag_glatc float(7,2)," +\
+                  " mag_gltc float(8,2)," +\
+                  " mag_gazmc TINYINT(5)," +\
+                  " datetime DATETIME, " +\
+                  " CONSTRAINT ten_min PRIMARY KEY (" +\
+		  "mag_glatc, mag_gltc, mag_gazmc, datetime))"
+
     elif coords == "geo":
         command = "CREATE TABLE IF NOT EXISTS {tb}" +\
-                  "(vel float(9,2) DEFAULT NULL," +\
-                  " geo_glatc float(7,2) DEFAULT NULL," +\
-                  " geo_gltc float(8,2) DEFAULT NULL," +\
-                  " geo_gazmc TINYINT(5) DEFAULT NULL," +\
-                  " datetime DATETIME DEFAULT NULL)"
+                  "(vel float(9,2)," +\
+                  " geo_glatc float(7,2)," +\
+                  " geo_gltc float(8,2)," +\
+                  " geo_gazmc TINYINT(5)," +\
+                  " datetime DATETIME, " +\
+                  " CONSTRAINT ten_min PRIMARY KEY (" +\
+		  "geo_glatc, geo_gltc, geo_gazmc, datetime))"
     command = command.format(tb=output_table)
     try:
         cur_output.execute(command)
@@ -171,11 +176,11 @@ def ten_min_median(rad, stm, etm, ftype="fitacf",
                 # take the median value
                 bin_vel[ky] = round(np.median(bin_vel[ky]),2)
                 if coords == "mlt":
-                    command = "INSERT INTO {tb} (vel, mag_glatc, mag_gltc, " +\
-                              "mag_gazmc, datetime) VALUES (?, ?, ?, ?, ?)"
+                    command = "INSERT IGNORE INTO {tb} (vel, mag_glatc, mag_gltc, " +\
+                              "mag_gazmc, datetime) VALUES (%s, %s, %s, %s, %s)"
                 elif coords == "geo":
-                    command = "INSERT INTO {tb} (vel, geo_glatc, geo_gltc, " +\
-                              "geo_gazmc, datetime) VALUES (?, ?, ?, ?, ?)"
+                    command = "INSERT IGNORE INTO {tb} (vel, geo_glatc, geo_gltc, " +\
+                              "geo_gazmc, datetime) VALUES (%s, %s, %s, %s, %s)"
                 command = command.format(tb=output_table)
 
                 # check the db connection before inserting
@@ -188,7 +193,7 @@ def ten_min_median(rad, stm, etm, ftype="fitacf",
                     logging.error(e, exc_info=True)
 
         print("finished median filtering for " + rad  +\
-              "for time interval between " + str(sdtm) + " and " + str(edtm))
+              " for time interval between " + str(sdtm) + " and " + str(edtm))
 
         # update starting and ending time of the time interval given by len_tm
         sdtm = edtm
@@ -291,7 +296,7 @@ def main(run_in_parallel=True):
 if __name__ == "__main__":
     import datetime as dt
     t1 = dt.datetime.now()
-    main(run_in_parallel=True)
+    main(run_in_parallel=False)
     t2 = dt.datetime.now()
     print("Finishing ten-min median filtering took " +\
     str((t2-t1).total_seconds() / 60.) + " mins\n")
