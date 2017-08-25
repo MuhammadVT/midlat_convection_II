@@ -1,12 +1,13 @@
 def ten_min_median(rad, stm, etm, ftype="fitacf", 
 		   coords="mlt",
 		   config_filename="../mysql_dbconfig_files/config.ini",
-		   section="midlat", iscat_dbname=None, output_dbname=None)
+                   section="midlat", iscat_dbname=None, output_dbname=None):
     
-    """ bins ten minutes of data from a single radar by choosing 
-    the median vector in each azimuth bin within each grid cell. 
-    The results are stored in a different db file that combines all the beams's 
-    data into a single table named by the radar.
+    """ Bins the gridded data from all beams of a single radar into ten-minute intervals.
+    e.g., at each ten-minute interval, median vector in each azimuth bin within a grid cell is
+    selected as the representative velocity for that bin. 
+    The results are stored in a different db such that data from all beams 
+    of a given radar are written into a single table named by the radar name.
 
     Parameters
     ----------
@@ -28,7 +29,7 @@ def ten_min_median(rad, stm, etm, ftype="fitacf",
     iscat_dbname : str, default to None
         Name of the MySQL db to which iscat data has been written
     output_dbname : str, default to None
-        Name of the MySQL db to which ten-min median will be written
+        Name of the MySQL db to which ten-min median filtered data will be written
 
     Returns
     -------
@@ -42,29 +43,40 @@ def ten_min_median(rad, stm, etm, ftype="fitacf",
     import sys
     sys.path.append("../")
     from mysql_dbutils.db_config import db_config
+    from mysql_dbutils import db_tools
     import logging
+
+    # create db names
+    if iscat_dbname is None:
+        iscat_dbname = rad + "_iscat_" + ftype
+    if output_dbname is None:
+        output_dbname = "ten_min_median_" + coords + "_" + ftype
+    output_table = rad + "_" + ftype
+
+    # create a db (if not exist) for ten-min median data
+    try:
+	# create a db
+	db_tools.create_db(output_dbname)
+    except Exception, e:
+	logging.error(e, exc_info=True)
 
     # read the db config info
     config =  db_config(config_filename=config_filename, section=section)
     config_info = config.read_db_config()
 
     # make a connection to iscat db
-    if iscat_dbname is None:
-        iscat_dbname = rad + "_iscat_" + ftype
     try:
         conn_iscat = MySQLConnection(database=iscat_dbname, **config_info)
+        cur_iscat = conn_iscat.cursor(buffered=True)
     except Exception, e:
         logging.error(e, exc_info=True)
-    cur_iscat = conn_iscat.cursor(buffered=True)
 
     # make a connection to ten-min-median db
-    if output_dbname is None:
-        output_dbname = "ten_min_median_" + coords + "_" + ftype
     try:
         conn_output = MySQLConnection(database=output_dbname, **config_info)
+        cur_output = conn_output.cursor(buffered=True)
     except Exception, e:
         logging.error(e, exc_info=True)
-    cur_output = conn_output.cursor(buffered=True)
 
     # create a table that combines all the beams of a radar
     if coords == "mlt":
@@ -81,15 +93,18 @@ def ten_min_median(rad, stm, etm, ftype="fitacf",
                   " geo_gltc float(8,2) DEFAULT NULL," +\
                   " geo_gazmc TINYINT(5) DEFAULT NULL," +\
                   " datetime DATETIME DEFAULT NULL)"
-    command = command.format(tb=rad)
-    cur_output.execute(command)
+    command = command.format(tb=output_table)
+    try:
+        cur_output.execute(command)
+    except Exception, e:
+        logging.error(e, exc_info=True)
 
     # get all the table names in iscat db
     cur_iscat.execute("SHOW TABLES")
     tbl_names = cur_iscat.fetchall()
     tbl_names = [x[0] for x in tbl_names]
 
-    # lengh of the time interval during which the data is median filtered 
+    # length of the time interval during which the data is median filtered 
     len_tm = 10    # minutes
 
     # initial starting and ending time of the time interval given by len_tm
@@ -109,6 +124,10 @@ def ten_min_median(rad, stm, etm, ftype="fitacf",
                 command = "SELECT vel, geo_glatc, geo_gltc, geo_gazmc " +\
                           "FROM {tb} WHERE datetime BETWEEN '{sdtm}' AND '{edtm}'"
             command = command.format(tb=tbl, sdtm=sdtm, edtm=edtm)
+
+            # check the db connection before select
+            if not conn_iscat.is_connected():
+                conn_iscat.reconnect()
             try:
                 cur_iscat.execute(command)
             except Exception, e:
@@ -151,21 +170,33 @@ def ten_min_median(rad, stm, etm, ftype="fitacf",
             for ky in bin_vel.keys(): 
                 # take the median value
                 bin_vel[ky] = round(np.median(bin_vel[ky]),2)
-                command = "INSERT INTO {tb} (vel, glatc, glonc, gazmc, datetime) " +\
-                          "VALUES (?, ?, ?, ?, ?)"
-                command = command.format(tb=rad+ "_" + ftype)
+                if coords == "mlt":
+                    command = "INSERT INTO {tb} (vel, mag_glatc, mag_gltc, " +\
+                              "mag_gazmc, datetime) VALUES (?, ?, ?, ?, ?)"
+                elif coords == "geo":
+                    command = "INSERT INTO {tb} (vel, geo_glatc, geo_gltc, " +\
+                              "geo_gazmc, datetime) VALUES (?, ?, ?, ?, ?)"
+                command = command.format(tb=output_table)
+
+                # check the db connection before inserting
+                if not conn_output.is_connected():
+                    conn_output.reconnect()
                 try:
-                    cur_output.execute(command, (bin_vel[ky], ky[0], ky[1], ky[2], mid_tm))
+                    cur_output.execute(command,
+                                       (bin_vel[ky], ky[0], ky[1], ky[2], mid_tm))
                 except Exception, e:
                     logging.error(e, exc_info=True)
 
-        print "finished taking the median velocity between " + str(sdtm)\
-                + " and " + str(edtm) + " of " + rad
+        print("finished median filtering for " + rad  +\
+              "for time interval between " + str(sdtm) + " and " + str(edtm))
 
         # update starting and ending time of the time interval given by len_tm
         sdtm = edtm
         edtm = sdtm + dt.timedelta(minutes=len_tm)
 
+    # check the db connection before committing
+    if not conn_output.is_connected():
+        conn_output.reconnect()
     # commit the change
     try:
         conn_output.commit()
@@ -180,39 +211,26 @@ def ten_min_median(rad, stm, etm, ftype="fitacf",
 
 def worker(rad, stm, etm, ftype="fitacf", 
            coords="mlt", config_filename="../mysql_dbconfig_files/config.ini",
-           section="midlat", iscat_dbname=None, output_dbname=None)
+           section="midlat", iscat_dbname=None, output_dbname=None):
 
     import datetime as dt
 
-    # input parameters
-    ftype = "fitacf"
-
-    # loop through time interval
-    for dd in range(len(stms)):
-        stm = stms[dd]
-        etm = etms[dd]
-                
-        # loop through radars
-        for rad in rads:
-
-            # take ten minutes median values
-            print("start working on table " + rad + " for interval between " +\
-                  str(stm) + " and " + str(etm))
-            ten_min_median(rad, stm, etm, ftype=ftype, 
-                           coords=coords,
-                           config_filename=config_filename,
-                           section=section, iscat_dbname=iscat_dbname,
-                           output_dbname=output_dbname)
-            print("finish taking ten mimute median filtering on " + rad +\
-                  " for interval between " + str(stm) + " and " + str(etm))
+    # take ten-minute median values
+    print("start working on table " + rad + " for interval between " +\
+          str(stm) + " and " + str(etm))
+    ten_min_median(rad, stm, etm, ftype=ftype, coords=coords,
+                   config_filename=config_filename,
+                   section=section, iscat_dbname=iscat_dbname,
+                   output_dbname=output_dbname)
+    print("finish taking ten mimute median filtering on " + rad +\
+          " for interval between " + str(stm) + " and " + str(etm))
 
     return
 
 def main(run_in_parallel=True):
     """ Call the functions above. Acts as an example code.
     Multiprocessing has been implemented to do parallel computing.
-    A unit process runs for a radar (i.e. a radar data is written to
-    a db table named with rad + ftype)"""
+    A unit process runs for a radar"""
 
     import datetime as dt
     import multiprocessing as mp
@@ -223,9 +241,11 @@ def main(run_in_parallel=True):
     logging.basicConfig(filename="./log_files/ten_min_median_hok.log",
                         level=logging.INFO)
     # input parameters
-    stm = dt.datetime(2011, 1,1) 
+    #stm = dt.datetime(2011, 1,1) 
+    stm = dt.datetime(2015, 1,1) 
     etm = dt.datetime(2017, 1,1) 
     ftype = "fitacf"
+    coords = "mlt"
     iscat_dbname = None       # if set to None, default iscat db would be used. 
     output_dbname = None       # if set to None, default ten_min_median db would be used. 
     
@@ -236,13 +256,11 @@ def main(run_in_parallel=True):
     #rad_list = ["bpk"]
     #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
     
-    # loop through the dates
-    for rad in rad_list:
-        
-        # store the multiprocess
-        procs = []
+    # store the multiprocess
+    procs = []
+    # loop through radars
+    for rad in rad_list: 
 	if run_in_parallel:
-	    # run in parellel
 	    # cteate a process
 	    worker_kwargs = {"ftype":ftype, "coords":coords,
 			     "config_filename":"../mysql_dbconfig_files/config.ini",
@@ -258,17 +276,23 @@ def main(run_in_parallel=True):
 	else:
 	    # run in serial
             worker(rad, stm, etm, ftype=ftype, 
-                           coords=coords,
-                           config_filename=config_filename,
-                           section=section, iscat_dbname=iscat_dbname,
-                           output_dbname=output_dbname)
+                   coords=coords,
+                   config_filename="../mysql_dbconfig_files/config.ini",
+                   section="midlat", iscat_dbname=iscat_dbname,
+                   output_dbname=output_dbname)
             
-        if run_in_parallel:
-            # make sure the processes terminate
-            for p in procs:
-                p.join()
+    if run_in_parallel:
+        # make sure the processes terminate
+        for p in procs:
+            p.join()
 
     return
 
 if __name__ == "__main__":
-    main(run_in_parallel=False)
+    import datetime as dt
+    t1 = dt.datetime.now()
+    main(run_in_parallel=True)
+    t2 = dt.datetime.now()
+    print("Finishing ten-min median filtering took " +\
+    str((t2-t1).total_seconds() / 60.) + " mins\n")
+
