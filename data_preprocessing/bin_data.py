@@ -208,13 +208,13 @@ def bin_to_grid(rad, bmnum, stm=None, etm=None, ftype="fitacf",
 
     if (stm is not None) and (etm is not None):
         command = "SELECT {latc}, {lonc}, {azm}, datetime FROM {tb} " +\
-                  "WHERE datetime BETWEEN '{sdtm}' AND '{edtm}' ORDER BY datetime"
+                  "WHERE datetime BETWEEN '{sdtm}' AND '{edtm}' ORDER BY datetime ASC"
         command = command.format(tb=table_name, sdtm=stm, edtm=etm,
                                  latc=col_latc, lonc=col_ltc, azm=col_azmc)
 
     # do the convertion to the data between stm and etm if any of them is None
     else:
-        command = "SELECT {latc}, {lonc}, {azm}, datetime FROM {tb} ORDER BY datetime".\
+        command = "SELECT {latc}, {lonc}, {azm}, datetime FROM {tb} ORDER BY datetime ASC".\
 		  format(tb=table_name, latc=col_latc, lonc=col_ltc, azm=col_azmc)
 
     try:
@@ -355,7 +355,7 @@ def main(run_in_parallel=True):
     
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/bin_data_hok.log",
+    logging.basicConfig(filename="./log_files/bin_data_hkw.log",
                         level=logging.INFO)
     
     # input parameters
@@ -367,7 +367,7 @@ def main(run_in_parallel=True):
     hemi = "north"       # currently only works for "north".
     
     # run the code for the following radars in parallel
-    rad_list = ["hok"]
+    rad_list = ["hkw"]
     #rad_list = ["ade", "adw"]
     #rad_list = ["tig", "unw"]
     #rad_list = ["bpk"]
