@@ -1,3 +1,5 @@
+import pdb
+
 class gmi_imf_to_db(object):
 
     def __init__(self, stm, etm, db_name=None,
@@ -11,7 +13,7 @@ class gmi_imf_to_db(object):
         etm : datetime.datetime
             The end date
         db_name : str, default to None
-            Name of the MySQL db to which iscat data will be written
+            Name of an sqlite db to which data will be written
         base_location : str
             Path to db_name file
         
@@ -56,19 +58,22 @@ class gmi_imf_to_db(object):
         data_dict['Bz'] = [omni_list[i].bzm for i in range(len(omni_list))]
 
         # clock angle
-        #data_dict['theta'] = np.degrees(np.arctan2(data_dict['By'], data_dict['Bz'])) % 360
-        data_dict['theta'] = [round(np.degrees(np.arctan2(data_dict['By'][i], data_dict['Bz'][i])) % 360, 2) \
-                              if (data_dict['By'][i] is not None and data_dict['Bz'][i] is not None) \
-                              else None \
-                              for i in range(len(data_dict['By']))]
+        #data_dict['theta'] = np.degrees(np.arctan2(data_dict['By'],
+        #                                           data_dict['Bz'])) % 360
+        data_dict['theta'] = [round(np.degrees(np.arctan2(data_dict['By'][i],
+                              data_dict['Bz'][i])) % 360, 2) \
+                              if (data_dict['By'][i] is not None and \
+                              data_dict['Bz'][i] is not None) \
+                              else None for i in range(len(data_dict['By']))]
         
         # make db connection
         self.conn = self._create_dbconn()
         # create table
         table_name = "IMF"
-        colname_type = "datetime TIMESTAMP PRIMARY KEY, Bx REAL, By REAL, Bz REAL, theta REAL"
-        command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})".format(tb=table_name,\
-                                                                           colname_type=colname_type)
+        colname_type = "datetime TIMESTAMP PRIMARY KEY, Bx REAL, " +\
+                       "By REAL, Bz REAL, theta REAL"
+        command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})"
+        command = command.format(tb=table_name, colname_type=colname_type)
         self.conn.cursor().execute(command)
         
         # populate the table
@@ -81,8 +86,9 @@ class gmi_imf_to_db(object):
             Bz = data_dict['Bz'][i]
             theta = data_dict['theta'][i]
             if (Bx is not None) and (By is not None) and (Bz is not None):
-                command = "INSERT OR IGNORE INTO {tb}({columns}) VALUES (?, ?, ?, ?, ?)".\
-                          format(tb=table_name, columns=columns)
+                command = "INSERT OR IGNORE INTO {tb}({columns}) " +\
+                          "VALUES (?, ?, ?, ?, ?)"
+                command = command.format(tb=table_name, columns=columns)
                 self.conn.cursor().execute(command, (dtm, Bx, By, Bz, theta))
         self.conn.commit()
 
@@ -98,9 +104,11 @@ class gmi_imf_to_db(object):
         # read the data from txt file 
         date_parser = lambda x: pd.datetime.strptime(x, '%Y %j %H')
         fname = "../data/sqlite3/gmi_imf/F107.txt"
-        df = pd.read_csv(fname, index_col=0, header=None, names=["Year", "DOY", "Hour", "F107"],
+        df = pd.read_csv(fname, index_col=0, header=None, 
+                         names=["Year", "DOY", "Hour", "F107"],
                          skipinitialspace=True, delim_whitespace=True,
-                         parse_dates={'datetime': [0,1,2]}, date_parser=date_parser, na_values=999.9)
+                         parse_dates={'datetime': [0,1,2]},
+                         date_parser=date_parser, na_values=999.9)
 
         data_dict = {}
         data_dict['datetime'] = df.index.to_pydatetime().tolist() 
@@ -111,8 +119,8 @@ class gmi_imf_to_db(object):
         # create table
         table_name = "F107"
         colname_type = "datetime TIMESTAMP PRIMARY KEY, F107 REAL"
-        command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})".format(tb=table_name,\
-                                                                           colname_type=colname_type)
+        command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})"
+        command = command.format(tb=table_name, colname_type=colname_type)
         self.conn.cursor().execute(command)
         
         # populate the table
@@ -131,40 +139,63 @@ class gmi_imf_to_db(object):
 
 
     def kp_to_db(self, kp_lim=None):
-        """fetches Kp data and writes them to db """
+        """fetches Kp data from GFZ Potsdam FTP server and writes them to db.
+        Parameters
+        ----------
+        kp_lim : list
+            The lower (>=) and upper (<) limit set for kp selection
+        """
 
         from davitpy import gme
         import datetime as dt
 
+        # make a db connection
         self.conn = self._create_dbconn()
-        # Kp data
+
+        # fetch Kp data
         data_dict = {'datetime':[], 'kp':[]}
-        Kp_list = gme.ind.readKp(sTime=self.stm,eTime=self.etm)
-        day_num = (self.etm-self.stm).days
-        for n in xrange(day_num):
-            kp_tmp = Kp_list[n].kp
-            time_tmp = Kp_list[n].time
-            if kp_tmp is not None:
-                for l in range(len(kp_tmp)):
-                    if len(kp_tmp) < 8:
-                        print str(len(kp_tmp)) + " values for a day, should have 8 values"
-                    if len(kp_tmp[l])== 2:
-                        if kp_tmp[l][1] == '+':
-                            data_dict['kp'].append(int(kp_tmp[l][0])+0.3)
-                        elif kp_tmp[l][1] == '-':
-                            data_dict['kp'].append(int(kp_tmp[l][0])-0.3)
+
+        # readKpFtp can not read across year boundaries. So we need to 
+        # use a for-loop to avoid it.
+        sdtm = self.stm
+        while sdtm <= self.etm:
+            if sdtm.year == self.etm.year:
+                edtm = self.etm
+            else:
+                edtm = dt.datetime(sdtm.year, 12, 31) 
+            Kp_list = gme.ind.readKpFtp(sTime=sdtm,eTime=edtm)
+
+            # loop through each day withing sdtm and edtm
+            day_num = (edtm-sdtm).days
+            for n in xrange(day_num):
+                kp_tmp = Kp_list[n].kp
+                time_tmp = Kp_list[n].time
+                if kp_tmp is not None:
+                    if len(kp_tmp) < 8 or len(kp_tmp) > 8:
+                        print(str(len(kp_tmp))  + " values for the day " +\
+                                  str(time_tmp) + ", should have 8 values")
+                        continue
                     else:
-                        data_dict['kp'].append(int(kp_tmp[l][0]))
-                    data_dict['datetime'].append(time_tmp + dt.timedelta(hours=3*l))
+                        for l in range(len(kp_tmp)):
+                            if len(kp_tmp[l])== 2:
+                                if kp_tmp[l][1] == '+':
+                                    data_dict['kp'].append(int(kp_tmp[l][0])+0.3)
+                                elif kp_tmp[l][1] == '-':
+                                    data_dict['kp'].append(int(kp_tmp[l][0])-0.3)
+                            else:
+                                data_dict['kp'].append(int(kp_tmp[l][0]))
+                            data_dict['datetime'].append(time_tmp + dt.timedelta(hours=3*l))
+
+            # update sdtm
+            sdtm = edtm + dt.timedelta(days=1)
 
         # move to db
         if (data_dict['datetime'])!=[]:
-
             # create table
             table_name = "kp"
             colname_type = "datetime TIMESTAMP PRIMARY KEY, kp REAL"
-            command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})".format(tb=table_name,\
-                                                                           colname_type=colname_type)
+            command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})"
+            command = command.format(tb=table_name, colname_type=colname_type)
             self.conn.cursor().execute(command)
             
             # populate the table
@@ -184,15 +215,14 @@ class gmi_imf_to_db(object):
                     command = "INSERT OR IGNORE INTO {tb}({columns}) VALUES (?, ?)".\
                               format(tb=table_name, columns=columns)
                     self.conn.cursor().execute(command, (dtm, k))
-
-                    
-                #col_value_map = {"datetime":data_dict['datetime'][i], "vel":data_dict['vel'][i],
-                #                 "slist":data_dict["slist"][i], "bmazm":data_dict["bmazm"][i]} 
+            
+            # commit the change
             self.conn.commit()
 
         # close db connection
         self.conn.close()
-
+        
+        return
 
 
     def symh_to_db(self, symh_lim=None):
@@ -217,8 +247,8 @@ class gmi_imf_to_db(object):
             # create table
             table_name = "symh"
             colname_type = "datetime TIMESTAMP PRIMARY KEY, symh REAL"
-            command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})".format(tb=table_name,\
-                                                                           colname_type=colname_type)
+            command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})"
+            command = command.format(tb=table_name, colname_type=colname_type)
             self.conn.cursor().execute(command)
             
             # populate the table
@@ -240,8 +270,10 @@ class gmi_imf_to_db(object):
                     self.conn.cursor().execute(command, (dtm, k))
 
                     
-                #col_value_map = {"datetime":data_dict['datetime'][i], "vel":data_dict['vel'][i],
-                #                 "slist":data_dict["slist"][i], "bmazm":data_dict["bmazm"][i]} 
+                #col_value_map = {"datetime":data_dict['datetime'][i],
+                #                 "vel":data_dict['vel'][i],
+                #                 "slist":data_dict["slist"][i],
+                #                 "bmazm":data_dict["bmazm"][i]} 
             self.conn.commit()
 
         # close db connection
@@ -270,8 +302,8 @@ class gmi_imf_to_db(object):
             # create table
             table_name = "ae"
             colname_type = "datetime TIMESTAMP PRIMARY KEY, ae REAL"
-            command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})".format(tb=table_name,\
-                                                                           colname_type=colname_type)
+            command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})"
+            command = command.format(tb=table_name, colname_type=colname_type)
             self.conn.cursor().execute(command)
             
             # populate the table
@@ -301,11 +333,11 @@ class gmi_imf_to_db(object):
 
 def main():
     import datetime as dt
-    stm = dt.datetime(2010, 12, 31)
-    etm = dt.datetime(2017, 1, 2)
+    stm = dt.datetime(2010, 12, 29)
+    etm = dt.datetime(2017, 1, 3)
     #etm = dt.datetime(2011, 1, 2)
     db_name = None
-    base_location = "../../data/sqlite3/gmi_imf/"
+    base_location = "../../data/sqlite3/"
 
     kp_lim = None
     symh_lim = None
