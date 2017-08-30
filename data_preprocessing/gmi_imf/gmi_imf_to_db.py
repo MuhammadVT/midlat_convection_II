@@ -166,7 +166,7 @@ class gmi_imf_to_db(object):
             Kp_list = gme.ind.readKpFtp(sTime=sdtm,eTime=edtm)
 
             # loop through each day withing sdtm and edtm
-            day_num = (edtm-sdtm).days
+            day_num = (edtm-sdtm).days + 1
             for n in xrange(day_num):
                 kp_tmp = Kp_list[n].kp
                 time_tmp = Kp_list[n].time
