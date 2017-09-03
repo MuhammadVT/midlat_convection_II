@@ -1,5 +1,5 @@
 def gmi_based_filter(rad, output_table, ftype="fitacf", coords="mlt",
-                     isKp_based=True, kp_lim=[0, 2.3],
+                     isKp_based=True, kp_lim=[0.0, 2.3],
                      isSymH_based=False, symh_min=-50,
 		     config_filename="../mysql_dbconfig_files/config.ini",
 		     section="midlat",
@@ -137,6 +137,8 @@ def gmi_based_filter(rad, output_table, ftype="fitacf", coords="mlt",
     for dtm in dtms:
         sdtm = dtm
         edtm = sdtm + dt.timedelta(hours=3)
+        print("Filtering data for time interval between {sdtm} and {edtm}".\
+                format(sdtm=str(sdtm), edtm=str(edtm)))
         command = "SELECT * FROM {tb} WHERE datetime BETWEEN '{sdtm}' " +\
                   "AND '{edtm}'"
         command = command.format(tb=input_table, sdtm=sdtm, edtm=edtm)
@@ -181,7 +183,7 @@ def gmi_based_filter(rad, output_table, ftype="fitacf", coords="mlt",
     return
 
 def worker(rad, output_table, ftype="fitacf", coords="mlt",
-           isKp_based=True, kp_lim=[0, 2.3],
+           isKp_based=True, kp_lim=[0.0, 2.3],
            isSymH_based=False, symh_min=-50,
 	   config_filename="../../mysql_dbconfig_files/config.ini",
 	   section="midlat",
@@ -211,14 +213,21 @@ def main(run_in_parallel=False):
     Unit process runs for a single radar"""
 
     import multiprocessing
+    import logging
+
+    # create a log file to which any error occured between client and
+    # MySQL server communication will be written.
+    logging.basicConfig(filename="../log_files/kp_lte_23_hok_hkw.log",
+                        level=logging.INFO)
 
     # initialize parameters
     rad_list = ["hok", "hkw"]
-    kp_lim = [0, 2.3]    # the range boundaries are inclusive
+    kp_lim = [0.0, 2.3]    # the range boundaries are inclusive
+    kp_text = "_to_".join(["".join(str(x).split(".")) for x in kp_lim])
+	
     coords = "mlt"
     ftype="fitacf"
-    output_table = "_".join(rad_list) + "_kp_" +\
-                   "_to_".join([str(x) for x in kp_lim]) + "_" + ftype
+    output_table = "_".join(rad_list) + "_kp_" + kp_text + "_" + ftype
     isKp_based=True
     isSymH_based=False
     symh_min=-50
