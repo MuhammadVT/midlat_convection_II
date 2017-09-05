@@ -157,67 +157,168 @@ def build_master_table(input_table, output_table, ftype="fitacf", coords="mlt",
 
     return
 
-def master_summary(ftype="fitacf", baseLocation="../data/sqlite3/",
-                   dbName=None):
+def master_summary(input_table, output_table, coords="mlt", db_name=None,
+                   config_filename="../mysql_dbconfig_files/config.ini",
+                   section="midlat"):
     
-    """ stores the summay of the master table into a different table in the same database.
-    Time informatin is all lost at this point.
+    """ stores the summay statistics of the data in master table into 
+    a different table in the same database.
+    Time and rad informatin are all lost at this point.
+
+    Parameters
+    ----------
+    input_table : str
+        Name of a master table in master db
+    output_table : str
+        Name of a master_summary table in master db
+    coords : str
+        Coordinates in which the binning process took place.
+        Default to "mlt, can be "geo" as well. 
+    config_filename: str
+        name and path of the configuration file
+    section: str, default to "midlat"
+        section of database configuration
+    db_name : str, default to None
+        Name of the master db
+
+    Returns
+    -------
+    Nothing
+
     """
-    import sqlite3
     import datetime as dt
     import numpy as np 
+    from mysql.connector import MySQLConnection
+    import sys
+    sys.path.append("../")
+    from mysql_dbutils.db_config import db_config
     import logging
 
-    # make db connection for dopsearch
-    if dbName is None:
-        dbName = "master_" + ftype + ".sqlite"
+    # construct a db name
+    if db_name is None:
+        output_dbname = "master_" + coords + "_" +ftype
 
-    # create a db that summarizes the data in the master table
-    conn = sqlite3.connect(baseLocation + dbName)
-    cur = conn.cursor()
-    
-    # create a summary table
-    T1 = "master"
-    T2 = "master_summary"
-    cur.execute("CREATE TABLE IF NOT EXISTS {tb}\
-                (vel TEXT, median_vel REAL, vel_count INTEGER, glatc REAL, glonc REAL, gazmc INTEGER,\
-                 PRIMARY KEY (glatc, glonc, gazmc))".format(tb=T2))
+    # read db config info
+    config =  db_config(config_filename=config_filename, section=section)
+    config_info = config.read_db_config()
 
-    command = "INSERT OR IGNORE INTO {tb2} (vel, vel_count, glatc, glonc, gazmc)\
-               SELECT group_concat(vel), COUNT(vel), glatc, glonc, gazmc FROM {tb1}\
-               GROUP BY glatc, glonc, gazmc".format(tb1=T1, tb2=T2)
-    cur.execute(command)
+    # make a connection to master db
+    try:
+        conn = MySQLConnection(database=db_name, **config_info)
+        cur = conn.cursor(buffered=True)
+    except Exception, e:
+        logging.error(e, exc_info=True)
 
-    # commit the change
-    conn.commit()
-    
-    # select the velocity data grouping by lat-lon-azm bins
-    command = "SELECT rowid, vel FROM {tb2}".format(tb2=T2)
-    cur.execute(command)
-    rws = cur.fetchall()
-
-    for ii, rw in enumerate(rws):
-        rwid, vel_txt = rw
-        bin_vel = np.array([float(x) for x in vel_txt.split(",")])
-
-        # take the median value
-        median_vel = round(np.median(bin_vel),2)
-        
-        # populate the table 
-        command = "UPDATE {tb} SET median_vel={median_vel}\
-                  WHERE rowid=={rwid}".format(tb=T2, median_vel=median_vel, rwid=rwid)
+    # create a table
+    if coords == "mlt":
+        command = "CREATE TABLE IF NOT EXISTS {tb}" +\
+                  "(vel_mean float(9,2)," +\
+                  " vel_median float(9,2)," +\
+                  " vel_std float(9,2)," +\
+                  " vel_count INT," +\
+                  " mag_glatc float(7,2)," +\
+                  " mag_gltc float(8,2)," +\
+                  " mag_gazmc TINYINT(5)," +\
+                  " season VARCHAR(8), " +\
+                  " CONSTRAINT grid_season PRIMARY KEY (" +\
+                  "mag_glatc, mag_gltc, mag_gazmc, season))"
+    elif coords == "geo":
+        command = "CREATE TABLE IF NOT EXISTS {tb}" +\
+                  "(vel_mean float(9,2)," +\
+                  " vel_median float(9,2)," +\
+                  " vel_std float(9,2)," +\
+                  " vel_count INT," +\
+                  " geo_glatc float(7,2)," +\
+                  " geo_gltc float(8,2)," +\
+                  " geo_gazmc TINYINT(5)," +\
+                  " season VARCHAR(8), " +\
+                  " CONSTRAINT grid_season PRIMARY KEY (" +\
+                  "geo_glatc, geo_gltc, geo_gazmc, season))"
+    command = command.format(tb=output_table)
+    try:
         cur.execute(command)
-        print ii
+    except Exception, e:
+        logging.error(e, exc_info=True)
 
+    if coords == "mlt":
+	command = "SELECT AVG(vel), STD(vel), COUNT(vel), " +\
+                  "mag_glatc, mag_gltc, mag_gazmc, season " +\
+		  "FROM {tb1} GROUP BY mag_glatc, mag_gltc, mag_gazmc, season"
+    elif coords == "geo":
+	command = "SELECT AVG(vel), STD(vel), COUNT(vel), " +\
+                  "geo_glatc, geo_gltc, geo_gazmc, season " +\
+		  "FROM {tb1} GROUP BY geo_glatc, geo_gltc, geo_gazmc, season"
+    command = command.format(tb1=input_table)
+
+    # check the db connection before fetching 
+    if not conn.is_connected():
+	conn.reconnect()
+    # fetch the data
+    try:
+	cur.execute(command)
+    except Exception, e:
+	logging.error(e, exc_info=True)
+    rows = cur.fetchall()
+
+    # insert the data into a table
+    if rows:
+	if coords == "mlt":
+	    command = "INSERT IGNORE INTO {tb2} (vel_mean, vel_median, vel_std, vel_count, " +\
+                      "mag_glatc, mag_gltc, mag_gazmc, season) " +\
+                      "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+	elif coords == "geo":
+	    command = "INSERT IGNORE INTO {tb2} (vel_mean, vel_median, vel_std, vel_count, " +\
+                      "geo_glatc, geo_gltc, geo_gazmc, season) " +\
+                      "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+	command = command.format(tb2=output_table)
+	for rw in rows:
+            vel_mean, vel_std, vel_count, lat, lt, azm, season =rw
+
+            # find median
+            if coords == "mlt":
+                command_tmp = "SELECT vel FROM {tb1} " +\
+                              "WHERE mag_glatc={lat} and mag_gltc={lt} and "+\
+                              "mag_gazmc={azm} and season='{season}'"
+            elif coords == "geo":
+                command_tmp = "SELECT vel FROM {tb1} " +\
+                              "WHERE geo_glatc={lat} and geo_gltc={lt} and "+\
+                              "geo_gazmc={azm} and season='{season}'"
+            command_tmp = command_tmp.format(tb1=input_table, lat=lat, lt=lt,
+                                             azm=azm, season=season)
+            try:
+                cur.execute(command_tmp)
+            except Exception, e:
+                logging.error(e, exc_info=True)
+            vels_tmp = cur.fetchall()
+            vels_tmp = [x[0] for x in vels_tmp]
+            vel_median = np.median(vels_tmp)
+
+	    # check the db connection before inserting
+	    if not conn.is_connected():
+		conn.reconnect()
+	    # insert the data
+	    try:
+		cur.execute(command,
+                            (round(vel_mean,2), round(vel_median,2), round(vel_std,2),
+                             vel_count, lat, lt, azm, season))
+	    except Exception, e:
+		logging.error(e, exc_info=True)
+
+    # check the db connection before committing
+    if not conn.is_connected():
+	conn.reconnect()
     # commit the change
-    conn.commit()
+    try:
+	conn.commit()
+    except Exception, e:
+	logging.error(e, exc_info=True)
 
-    # close db connection
+    # close db connections
     conn.close()
 
     return
 
-def main():
+def main(master_table=True, master_summary_table=True):
     import datetime as dt
     import logging
 
@@ -227,8 +328,10 @@ def main():
                         level=logging.INFO)
 
     # input parameters
-    input_table = "hok_hkw_kp_00_to_23_fitacf"
-    output_table = "master_hok_hkw_kp_00_to_23"
+    input_table_1 = "hok_hkw_kp_00_to_23_fitacf"
+    output_table_1 = "master_hok_hkw_kp_00_to_23"
+    input_table_2 = "master_hok_hkw_kp_00_to_23"
+    output_table_2 = "master_summary_hok_hkw_kp_00_to_23"
     ftype = "fitacf"
     coords = "mlt"
     config_filename="../mysql_dbconfig_files/config.ini"
@@ -236,20 +339,26 @@ def main():
     input_dbname = "ten_min_median_" + coords + "_" + ftype
     output_dbname = "master_" + coords + "_" +ftype
 
-    # build a master table 
-    print "building a master table"
-    build_master_table(input_table, output_table, ftype=ftype, coords=coords,
-                       config_filename=config_filename,
-                       section=section, input_dbname=input_dbname,
-                       output_dbname=output_dbname)
-    print "A master table is built"
+    if master_table:
+        # build a master table 
+        print "building a master table"
+        build_master_table(input_table_1, output_table_1, ftype=ftype, coords=coords,
+                           config_filename=config_filename,
+                           section=section, input_dbname=input_dbname,
+                           output_dbname=output_dbname)
+        print "A master table has been built"
 
-#    # build a summary table
-#    master_summary(ftype=ftype, baseLocation=baseLocation, dbName=None)
-#    print "created the master_summary table"
+    if master_summary_table:
+        # build a summary table
+        print "building a master_summary table"
+        master_summary(input_table_2, output_table_2, coords=coords,
+                       db_name=output_dbname,
+                       config_filename="../mysql_dbconfig_files/config.ini",
+                       section="midlat")
+        print "A master_summary has been build"
 
     return
 
 if __name__ == "__main__":
-    main()
+    main(master_table=True, master_summary_table=True)
 
