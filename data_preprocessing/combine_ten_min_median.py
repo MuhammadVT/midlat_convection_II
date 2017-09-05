@@ -100,7 +100,7 @@ def combine_ten_min_median(rads, ftype="fitacf", coords="mlt",
             logging.error(e, exc_info=True)
         rows = cur.fetchall()
 
-        # run the data into a table
+        # insert the data into a table
         if rows:
             if coords == "mlt":
                 command = "INSERT IGNORE INTO {tb2} (vel, mag_glatc, mag_gltc, " +\
