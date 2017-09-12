@@ -196,7 +196,7 @@ def master_summary(input_table, output_table, coords="mlt", db_name=None,
 
     # construct a db name
     if db_name is None:
-        output_dbname = "master_" + coords + "_" +ftype
+        db_name = "master_" + coords + "_" +ftype
 
     # read db config info
     config =  db_config(config_filename=config_filename, section=section)
