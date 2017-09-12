@@ -105,7 +105,7 @@ def gmi_based_filter(rad, output_table, ftype="fitacf", coords="mlt",
                   "(vel float(9,2)," +\
                   " mag_glatc float(7,2)," +\
                   " mag_gltc float(8,2)," +\
-                  " mag_gazmc TINYINT(5)," +\
+                  " mag_gazmc SMALLINT," +\
                   " datetime DATETIME, " +\
                   " rad VARCHAR(3), " +\
                   " CONSTRAINT filtered PRIMARY KEY (" +\
@@ -117,7 +117,7 @@ def gmi_based_filter(rad, output_table, ftype="fitacf", coords="mlt",
                   "(vel float(9,2)," +\
                   " geo_glatc float(7,2)," +\
                   " geo_gltc float(8,2)," +\
-                  " geo_gazmc TINYINT(5)," +\
+                  " geo_gazmc SMALLINT," +\
                   " datetime DATETIME, " +\
                   " rad VARCHAR(3), " +\
                   " CONSTRAINT filtered PRIMARY KEY (" +\
