@@ -84,7 +84,7 @@ def ten_min_median(rad, stm, etm, ftype="fitacf",
                   "(vel float(9,2)," +\
                   " mag_glatc float(7,2)," +\
                   " mag_gltc float(8,2)," +\
-                  " mag_gazmc TINYINT(5)," +\
+                  " mag_gazmc SMALLINT," +\
                   " datetime DATETIME, " +\
                   " CONSTRAINT ten_min PRIMARY KEY (" +\
 		  "mag_glatc, mag_gltc, mag_gazmc, datetime))"
@@ -94,7 +94,7 @@ def ten_min_median(rad, stm, etm, ftype="fitacf",
                   "(vel float(9,2)," +\
                   " geo_glatc float(7,2)," +\
                   " geo_gltc float(8,2)," +\
-                  " geo_gazmc TINYINT(5)," +\
+                  " geo_gazmc SMALLINT," +\
                   " datetime DATETIME, " +\
                   " CONSTRAINT ten_min PRIMARY KEY (" +\
 		  "geo_glatc, geo_gltc, geo_gazmc, datetime))"
