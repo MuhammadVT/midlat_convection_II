@@ -2,10 +2,11 @@ def cos_fit(input_table, output_table, db_name=None,
             config_filename="../mysql_dbconfig_files/config.ini",
             section="midlat", ftype="fitacf", coords="mlt",
             azbin_nvel_min=10, naz_min=3, az_span_min=30,
-            db_name=None, sqrt_weighting=True):
+            sqrt_weighting=True):
     
-    """ Does cosine fitting to the LOS data, and store the results in a different table
-    named "master_cosfit". This table only have qualifying latc-lonc grid points
+    """ Does cosine fitting to the LOS data in each MLAT/MLT grid, 
+    and stores the results in a different table named "master_cosfit_xxx". 
+    This table has only the qualified latc-lonc grid points.
 
     Parameters
     ----------
@@ -30,14 +31,15 @@ def cos_fit(input_table, output_table, db_name=None,
     naz_min : int
         The minimum number of azimuthal bins within a grid cell.
         cosine fitting is done if a grid cell has at least
-        naz_min number of qualifying azimuthal bins
+        naz_min number of qualified azimuthal bins
     az_span_min : int
         The minimum azimuhtal span a grid cell should have to
         be qualified for cosfitting.
     sqrt_weighting : bool
         if set to True, the fitting is weighted by the number of points within 
-        each azimuthal bin. if set to False, then all azimuthal bins are
-        considered equal regardless of the nubmer of points they contain.
+        each azimuthal bin. if set to False, all azimuthal bins are
+        considered equal regardless of the nubmer of points
+        each of them contains.
 
     Returns
     -------
@@ -69,53 +71,84 @@ def cos_fit(input_table, output_table, db_name=None,
     except Exception, e:
         logging.error(e, exc_info=True)
 
-
-
-    # make db connection for dopsearch
-    if dbName is None:
-        dbName = "master_" + ftype + ".sqlite"
-    conn = sqlite3.connect(baseLocation + dbName)
-    cur = conn.cursor()
-
+    # set output_table name
     if sqrt_weighting:
-        T1 = "master_cosfit"
+        output_table = output_table
     else:
-        T1 = "master_cosfit_equal_weighting"
-    
-    #T1 = "master_cosfit"
-    T2 = "master_summary"
+        output_table = output_table + "_equal_weighting"
 
-#    # build a new master table where we store the cosfitted velocities at each lat-lon grid points
-#    cur.execute("CREATE TABLE IF NOT EXISTS {tb1}\
-#                (vel_mag REAL, vel_mag_err REAL, vel_dir REAL, vel_dir_err REAL,\
-#                vel_count INTEGER, gazmc_count INTEGER,\
-#                glatc REAL, glonc REAL,\
-#                PRIMARY KEY (glatc, glonc))".format(tb1=T1))
-#
-#    # select the velocity data grouping by latc-lonc bins for the nigh side
-#    command = "SELECT count(*), glatc, glonc FROM {tb2}\
-#               WHERE (glonc BETWEEN 0 AND 135) OR (glonc BETWEEN 225 AND 360)\
-#               GROUP BY glatc, glonc\
-#               ".format(tb2=T2)
+    # create output_table
+    if coords == "mlt":
+        command = "CREATE TABLE IF NOT EXISTS {tb}" +\
+                  "(vel_mag float(9,2)," +\
+                  " vel_mag_err float(9,2)," +\
+                  " vel_dir float(9,2)," +\
+                  " vel_dir_err float(9,2)," +\
+                  " vel_count INT," +\
+                  " mag_gazmc_count SMALLINT," +\
+                  " mag_glatc float(7,2)," +\
+                  " mag_gltc float(8,2)," +\
+                  " season VARCHAR(8), " +\
+                  " CONSTRAINT cosfit_season PRIMARY KEY (" +\
+                  "mag_glatc, mag_gltc, season))"
+    elif coords == "geo":
+        command = "CREATE TABLE IF NOT EXISTS {tb}" +\
+                  "(vel_mag float(9,2)," +\
+                  " vel_mag_err float(9,2)," +\
+                  " vel_dir float(9,2)," +\
+                  " vel_dir_err float(9,2)," +\
+                  " vel_count INT," +\
+                  " geo_gazmc_count SMALLINT," +\
+                  " geo_glatc float(7,2)," +\
+                  " geo_gltc float(8,2)," +\
+                  " season VARCHAR(8), " +\
+                  " CONSTRAINT cosfit_season PRIMARY KEY (" +\
+                  "geo_glatc, geo_gltc, season))"
+    command = command.format(tb=output_table)
+    try:
+        cur.execute(command)
+    except Exception, e:
+        logging.error(e, exc_info=True)
 
-    cur.execute("CREATE TABLE IF NOT EXISTS {tb1}\
-                (vel_mag REAL, vel_mag_err REAL, vel_dir REAL, vel_dir_err REAL,\
-                vel_count INTEGER, gazmc_count INTEGER,\
-                glatc REAL, glonc REAL,\
-                PRIMARY KEY (glatc, glonc))".format(tb1=T1))
+    # select the velocity data grouping by latc-lonc bins.
+    # Each latc-lonc cell should contain at lease naz_min gazmc bins 
+    # with the azimuth span larger than az_span_min, and
+    # with each gazmc bin having at least azbin_nvel_min number of 
+    # measurements. 
 
-    # select the velocity data grouping by latc-lonc bins. Also each latc-lonc cell should
-    #contain gazmc bins that have at least azbin_nvel_min amount of measurements
-    command = "SELECT count(*), glatc, glonc, group_concat(gazmc) FROM\
-               (SELECT * FROM {tb2} WHERE vel_count >= {azbin_nvel_min})\
-               GROUP BY glatc, glonc\
-               ".format(tb2=T2, azbin_nvel_min=azbin_nvel_min)
-    #WHERE (glonc BETWEEN 0 AND 135) OR (glonc BETWEEN 225 AND 360)
+    # add new columns
+    if coords == "mlt":
+        col_glatc = "mag_glatc"   # glatc -> gridded latitude center
+        col_gltc = "mag_gltc"     # mlt hour in degrees
+        col_gazmc = "mag_gazmc"   # gazmc -> gridded azimuthal center
+        col_gazmc = "mag_gazmc_count"
+    if coords == "geo":
+        col_glatc = "geo_glatc"
+        col_gltc = "geo_gltc"    # local time in degrees
+        col_gazmc = "geo_gazmc"
+        col_gazmc = "geo_gazmc_count"
 
-    cur.execute(command)
+    # set group_concat_max_len to a very large number so that large 
+    # concatenated strings will not be truncated.
+    command = "SET SESSION group_concat_max_len = 1000000"
+    try:
+        cur.execute(command)
+    except Exception, e:
+        logging.error(e, exc_info=True)
+
+    # query  the data
+    command = "SELECT count(*), {glatc}, {gltc}, group_concat({gazmc}), season FROM " +\
+              "(SELECT * FROM {tb2} WHERE vel_count >= {azbin_nvel_min}) " +\
+              "GROUP BY {glatc}, {gltc}, season"
+    command = command.format(tb2=input_table, glatc=col_glatc, gltc=col_gltc,
+                             gazmc=col_gazmc, azbin_nvel_min=azbin_nvel_min)
+    try:
+        cur.execute(command)
+    except Exception, e:
+        logging.error(e, exc_info=True)
     rws = cur.fetchall()
 
-    # filter out lat-lon grid points that have less than 3 qualifying amimuthal bins 
+    # filter out lat-lon grid points that have less than 3 qualified amimuthal bins 
     rws = [x for x in rws if x[0] >= naz_min]
 
     # filter out lat-lon grid points that have less than 30 degrees azimuthal span
@@ -123,10 +156,8 @@ def cos_fit(input_table, output_table, db_name=None,
         az_rwi = np.sort(np.array([int(x) for x in rwi[3].split(",")]))
         if len(az_rwi) == 3:
             if az_rwi.tolist()==[5, 345, 355] or az_rwi.tolist()==[5, 15, 355]:
-                #print az_rwi
                 rws.remove(rwi)
             elif az_rwi.tolist()==[az_rwi[0], az_rwi[0]+10, az_rwi[0]+20]:
-                #print az_rwi
                 rws.remove(rwi)
             else:
                 continue
@@ -136,14 +167,21 @@ def cos_fit(input_table, output_table, db_name=None,
     azm_count = [x[0] for x in rws]
     lat = [x[1] for x in rws]
     lon = [x[2] for x in rws]
+    seasons = [x[4] for x in rws]
 
     for ii in xrange(len(lat)):
-        command = "SELECT median_vel, vel_count, gazmc FROM {tb2}\
-                   WHERE glatc={lat}\
-                    AND glonc={lon}\
-                    ORDER BY gazmc"\
-                    .format(tb2=T2, lat=lat[ii], lon=lon[ii])
-        cur.execute(command)
+        command = "SELECT vel_median, vel_count, {gazmc}, season FROM {tb2} " +\
+                  "WHERE {glatc}={lat} "+ \
+                  "AND {gltc}={lon} " +\
+                  "AND season={season} " +\
+                  "ORDER BY {gazmc}"
+        command = command.format(tb2=T2, glatc=col_glatc, gltc=col_gltc,
+                                 season=seasons[ii], gazmc=col_gazmc,
+                                 lat=lat[ii], lon=lon[ii])
+        try:
+            cur.execute(command)
+        except Exception, e:
+            logging.error(e, exc_info=True)
         rows = cur.fetchall()
         median_vel = np.array([x[0] for x in rows])
         vel_count = np.array([x[1] for x in rows])
@@ -161,19 +199,29 @@ def cos_fit(input_table, output_table, db_name=None,
         vel_dir_err = round(np.rad2deg(perrs[1]) % 360, 1)
 
         # populate the table 
-        command = "INSERT OR IGNORE INTO {tb1} (vel_mag,\
-                    vel_mag_err, vel_dir, vel_dir_err, vel_count,\
-                    gazmc_count, glatc, glonc) VALUES ({vel_mag},\
-                    {vel_mag_err}, {vel_dir}, {vel_dir_err}, {vel_count},\
-                    {gazmc_count}, {glatc}, {glonc})".format(tb1=T1, vel_mag=vel_mag,\
-                    vel_mag_err=vel_mag_err, vel_dir=vel_dir,\
-                    vel_dir_err=vel_dir_err, vel_count=np.sum(vel_count),\
-                    gazmc_count =azm_count[ii], glatc=lat[ii], glonc=lon[ii])
-        cur.execute(command)
-        print "finish inserting cosfit result at " + str((lat[ii], lon[ii]))
+        command = "INSERT IGNORE INTO {tb1} (vel_mag, "+\
+                  "vel_mag_err, vel_dir, vel_dir_err, vel_count, "+\
+                  "{gazmc_count}, {glatc}, {gltc}, season) VALUES ({vel_mag}, "\
+                  "{vel_mag_err}, {vel_dir}, {vel_dir_err}, {vel_count}, "+\
+                  "{azmc_count}, {glatc}, {gltc}, {season})"
+        command = command.format(tb1=output_table, gazmc_count=col_gazmc_count,
+                                 glatc=col_glatc, gltc=col_gltc, vel_mag=vel_mag,
+                                 vel_mag_err=vel_mag_err, vel_dir=vel_dir,
+                                 vel_dir_err=vel_dir_err, vel_count=np.sum(vel_count),
+                                 azmc_count =azm_count[ii], glatc=lat[ii], gltc=lon[ii],
+                                 season=seasons[ii])
+        try:
+            cur.execute(command)
+        except Exception, e:
+            logging.error(e, exc_info=True)
+        print("finish inserting cosfit result at " +\
+              str((lat[ii], lon[ii],seasons[ii])))
 
     # commit the change
-    conn.commit()
+    try:
+        conn.commit()
+    except Exception, e:
+        logging.error(e, exc_info=True)
 
     # close db connection
     conn.close()
@@ -192,93 +240,14 @@ def cos_curve_fit(azms, vels, sigma):
 
     return fitpars, perrs
 
-def worker(baseLocation, dbName):
-
-    import datetime as dt
-
-    # input parameters
-    azbin_nvel_min=10
-    naz_min=3
-    az_span_min=30
-
-    ftype = "fitacf"
-    #ftype = "fitex"
-    sqrt_weighting=True
-    # do the cosine fitting to the grid velocities
-    print "doing cosine fitting to each of the grid cell velocities"
-    cos_fit(ftype=ftype, azbin_nvel_min=azbin_nvel_min, naz_min=naz_min,
-            az_span_min=az_span_min, baseLocation=baseLocation,
-            dbName=dbName, sqrt_weighting=sqrt_weighting)
-    print "finished cosine fitting"
-
-
-    return
 if __name__ == "__main__":
-
-    import multiprocessing
     
-    ftype = "fitacf"
-    seasons = ["winter", "summer", "equinox"]
-    #seasons = ["winter"]
-    binned_season = False
-    binned_F107 = False
-    binned_imf = True
-
-    # list of dbNames to be cosine fitted
-    if binned_season:
-        dbName_list = [None]
-
-
-    if binned_F107:
-        dbName_list = []
-        #f107_bins = [[0, 100], [100, 175], [175, 500]]
-        #f107_bins = [[0, 100], [100, 150], [150, 500]]
-        #f107_bins = [[0, 105], [105, 125], [125, 500]]
-        #f107_bins = [[0, 110], [110, 500]]
-        #f107_bins = [[0, 120], [120, 500]]
-        #f107_bins = [[140, 500]]
-        f107_bins = [[0, 95], [105, 130], [140, 500]]
-        db_prefix = "f107_"
-        for f107_bin in f107_bins:
-            dbName = db_prefix + str(f107_bin[0]) + "_to_" + str(f107_bin[1]) +\
-                                        "_" + ftype + ".sqlite"
-            dbName_list.append(dbName)
-
-
-    if binned_imf:
-        dbName_list = []
-        #imf_clock_angle_bins = [[65, 115], [245, 295]] 
-        #imf_clock_angle_bins = [[335, 25], [155, 205]]
-        #imf_clock_angle_bins = [[330, 30], [150, 210]]
-        #imf_clock_angle_bins = [[60, 120], [240, 300]] 
-        #imf_clock_angle_bins = [[315, 45], [135, 225]]
-        imf_clock_angle_bins = [[300, 60], [120, 240]]
-
-        bins = imf_clock_angle_bins
-        db_prefix = "imf_clock_angle_"
-        for bn in bins:
-            dbName = db_prefix + str(bn[0]) + "_to_" + str(bn[1]) +\
-                                        "_" + ftype + ".sqlite"
-            dbName_list.append(dbName)
-
-    jobs = []
-    for season in seasons:
-        if binned_F107:
-            baseLocation="../data/sqlite3/" + season + "/kp_l_3/" + "data_in_mlt" + "/binned_by_f107/"
-        if binned_imf:
-            baseLocation="../data/sqlite3/" + season + "/kp_l_3/" + "data_in_mlt" + "/binned_by_imf_clock_angle/"
-        if binned_season:
-            baseLocation="../data/sqlite3/" + season + "/kp_l_3/" + "data_in_mlt" + "/"
-        #baseLocation="../data/sqlite3/" + season + "/kp_l_3/" + "data_in_mlt" + "/"
-        #baseLocation="../data/sqlite3/" + season + "/kp_l_3/" + "data_in_geo" + "/"
-        #baseLocation="../data/sqlite3/" + season + "/kp_l_2/" + "data_in_geo" + "/"
-        #baseLocation="../data/sqlite3/" + season + "/kp_l_1/" + "data_in_mlt" + "/"
-        #baseLocation="../data/sqlite3/" + season + "/kp_l_1/" + "data_in_geo" + "/"
-        for dbName in dbName_list:
-            p = multiprocessing.Process(target=worker, args=(baseLocation, dbName))
-            jobs.append(p)
-            p.start()
-
-        for p in jobs:
-            p.join()
+    # initialize parameters
+    input_table = "master_summary_hok_hkw_kp_00_to_23"
+    output_table = "master_cosfit_hok_hkw_kp_00_to_23"
+    cos_fit(input_table, output_table, db_name=None,
+            config_filename="../mysql_dbconfig_files/config.ini",
+            section="midlat", ftype="fitacf", coords="mlt",
+            azbin_nvel_min=10, naz_min=3, az_span_min=30,
+            sqrt_weighting=True):
 
