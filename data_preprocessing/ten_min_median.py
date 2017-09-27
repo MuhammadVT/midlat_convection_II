@@ -243,7 +243,7 @@ def main(run_in_parallel=True):
     
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/ten_min_median_hkw.log",
+    logging.basicConfig(filename="./log_files/ten_min_median_hok.log",
                         level=logging.INFO)
     # input parameters
     #stm = dt.datetime(2011, 1,1) 
@@ -255,7 +255,7 @@ def main(run_in_parallel=True):
     output_dbname = None       # if set to None, default ten_min_median db would be used. 
     
     # run the code for the following radars in parallel
-    rad_list = ["hkw"]
+    rad_list = ["hok"]
     #rad_list = ["ade", "adw"]
     #rad_list = ["tig", "unw"]
     #rad_list = ["bpk"]
