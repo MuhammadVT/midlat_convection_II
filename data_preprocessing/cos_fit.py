@@ -58,7 +58,7 @@ def cos_fit(input_table, output_table, db_name=None,
 
     # construct a db name
     if db_name is None:
-        output_dbname = "master_" + coords + "_" +ftype
+        db_name = "master_" + coords + "_" +ftype
 
     # read db config info
     config =  db_config(config_filename=config_filename, section=section)
@@ -121,12 +121,12 @@ def cos_fit(input_table, output_table, db_name=None,
         col_glatc = "mag_glatc"   # glatc -> gridded latitude center
         col_gltc = "mag_gltc"     # mlt hour in degrees
         col_gazmc = "mag_gazmc"   # gazmc -> gridded azimuthal center
-        col_gazmc = "mag_gazmc_count"
+        col_gazmc_count = "mag_gazmc_count"
     if coords == "geo":
         col_glatc = "geo_glatc"
         col_gltc = "geo_gltc"    # local time in degrees
         col_gazmc = "geo_gazmc"
-        col_gazmc = "geo_gazmc_count"
+        col_gazmc_count = "geo_gazmc_count"
 
     # set group_concat_max_len to a very large number so that large 
     # concatenated strings will not be truncated.
@@ -138,7 +138,7 @@ def cos_fit(input_table, output_table, db_name=None,
 
     # query  the data
     command = "SELECT count(*), {glatc}, {gltc}, group_concat({gazmc}), season FROM " +\
-              "(SELECT * FROM {tb2} WHERE vel_count >= {azbin_nvel_min}) " +\
+              "(SELECT * FROM {tb2} WHERE vel_count >= {azbin_nvel_min}) AS tbl " +\
               "GROUP BY {glatc}, {gltc}, season"
     command = command.format(tb2=input_table, glatc=col_glatc, gltc=col_gltc,
                              gazmc=col_gazmc, azbin_nvel_min=azbin_nvel_min)
@@ -173,9 +173,9 @@ def cos_fit(input_table, output_table, db_name=None,
         command = "SELECT vel_median, vel_count, {gazmc}, season FROM {tb2} " +\
                   "WHERE {glatc}={lat} "+ \
                   "AND {gltc}={lon} " +\
-                  "AND season={season} " +\
+                  "AND season='{season}' " +\
                   "ORDER BY {gazmc}"
-        command = command.format(tb2=T2, glatc=col_glatc, gltc=col_gltc,
+        command = command.format(tb2=input_table, glatc=col_glatc, gltc=col_gltc,
                                  season=seasons[ii], gazmc=col_gazmc,
                                  lat=lat[ii], lon=lon[ii])
         try:
@@ -198,14 +198,14 @@ def cos_fit(input_table, output_table, db_name=None,
         vel_mag_err = round(perrs[0],2)
         vel_dir_err = round(np.rad2deg(perrs[1]) % 360, 1)
 
-        # populate the table 
+        # populate the out table 
         command = "INSERT IGNORE INTO {tb1} (vel_mag, "+\
                   "vel_mag_err, vel_dir, vel_dir_err, vel_count, "+\
-                  "{gazmc_count}, {glatc}, {gltc}, season) VALUES ({vel_mag}, "\
+                  "{gazmc_count_txt}, {glatc_txt}, {gltc_txt}, season) VALUES ({vel_mag}, "\
                   "{vel_mag_err}, {vel_dir}, {vel_dir_err}, {vel_count}, "+\
-                  "{azmc_count}, {glatc}, {gltc}, {season})"
-        command = command.format(tb1=output_table, gazmc_count=col_gazmc_count,
-                                 glatc=col_glatc, gltc=col_gltc, vel_mag=vel_mag,
+                  "{azmc_count}, {glatc}, {gltc}, '{season}')"
+        command = command.format(tb1=output_table, gazmc_count_txt=col_gazmc_count,
+                                 glatc_txt=col_glatc, gltc_txt=col_gltc, vel_mag=vel_mag,
                                  vel_mag_err=vel_mag_err, vel_dir=vel_dir,
                                  vel_dir_err=vel_dir_err, vel_count=np.sum(vel_count),
                                  azmc_count =azm_count[ii], glatc=lat[ii], gltc=lon[ii],
@@ -217,6 +217,9 @@ def cos_fit(input_table, output_table, db_name=None,
         print("finish inserting cosfit result at " +\
               str((lat[ii], lon[ii],seasons[ii])))
 
+    # check whether database is still connected
+    if not conn.is_connected():
+        conn.reconnect()
     # commit the change
     try:
         conn.commit()
@@ -242,6 +245,13 @@ def cos_curve_fit(azms, vels, sigma):
 
 if __name__ == "__main__":
     
+    import logging
+
+    # create a log file to which any error occured between client and
+    # MySQL server communication will be written.
+    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_hok_hkw.log",
+                        level=logging.INFO)
+
     # initialize parameters
     input_table = "master_summary_hok_hkw_kp_00_to_23"
     output_table = "master_cosfit_hok_hkw_kp_00_to_23"
@@ -249,5 +259,5 @@ if __name__ == "__main__":
             config_filename="../mysql_dbconfig_files/config.ini",
             section="midlat", ftype="fitacf", coords="mlt",
             azbin_nvel_min=10, naz_min=3, az_span_min=30,
-            sqrt_weighting=True):
+            sqrt_weighting=True)
 
