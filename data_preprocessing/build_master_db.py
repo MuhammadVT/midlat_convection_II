@@ -79,7 +79,7 @@ def build_master_table(input_table, output_table, ftype="fitacf", coords="mlt",
                   "(vel float(9,2)," +\
                   " mag_glatc float(7,2)," +\
                   " mag_gltc float(8,2)," +\
-                  " mag_gazmc TINYINT(5)," +\
+                  " mag_gazmc SMALLINT," +\
                   " datetime DATETIME, " +\
                   " season VARCHAR(8), " +\
                   " rad VARCHAR(3), " +\
@@ -90,7 +90,7 @@ def build_master_table(input_table, output_table, ftype="fitacf", coords="mlt",
                   "(vel float(9,2)," +\
                   " geo_glatc float(7,2)," +\
                   " geo_gltc float(8,2)," +\
-                  " geo_gazmc TINYINT(5)," +\
+                  " geo_gazmc SMALLINT," +\
                   " datetime DATETIME, " +\
                   " season VARCHAR(8), " +\
                   " rad VARCHAR(3), " +\
@@ -218,7 +218,7 @@ def master_summary(input_table, output_table, coords="mlt", db_name=None,
                   " vel_count INT," +\
                   " mag_glatc float(7,2)," +\
                   " mag_gltc float(8,2)," +\
-                  " mag_gazmc TINYINT(5)," +\
+                  " mag_gazmc SMALLINT," +\
                   " season VARCHAR(8), " +\
                   " CONSTRAINT grid_season PRIMARY KEY (" +\
                   "mag_glatc, mag_gltc, mag_gazmc, season))"
@@ -230,7 +230,7 @@ def master_summary(input_table, output_table, coords="mlt", db_name=None,
                   " vel_count INT," +\
                   " geo_glatc float(7,2)," +\
                   " geo_gltc float(8,2)," +\
-                  " geo_gazmc TINYINT(5)," +\
+                  " geo_gazmc SMALLINT," +\
                   " season VARCHAR(8), " +\
                   " CONSTRAINT grid_season PRIMARY KEY (" +\
                   "geo_glatc, geo_gltc, geo_gazmc, season))"
