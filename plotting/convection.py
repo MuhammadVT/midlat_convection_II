@@ -1,33 +1,97 @@
-def fetch_data(ftype="fitacf", nvel_min=250, lat_range=[52, 59],
-               baseLocation="./", dbName=None):
+import matplotlib
+matplotlib.use('Agg')
+
+def fetch_data(input_table, lat_range=[52, 59], nvel_min=250, season="winter",
+               config_filename="../mysql_dbconfig_files/config.ini",
+               section="midlat", db_name=None, ftype="fitacf",
+	       coords="mlt", sqrt_weighting=True):
 
     """ fetch fitted data from the master db into a dict
 
     Parameters
     ----------
+    input_table : str
+        A table name in db_name db
+    lat_ragne : list
+	The range of latitudes of interest
     nvel_min : int
-        minimum number of velocity measurements in a lat-lon grid cell
+        minimum requirement for the number of velocity measurements
+	in a lat-lon grid cell
+    season : str
+        season of interest
+    config_filename: str
+        name and path of the configuration file
+    section: str, default to "midlat"
+        section of database configuration
+    db_name : str, default to None
+        Name of the master db
+    ftype : str
+        SuperDARN file type
+    coords : str
+        Coordinates in which the binning process took place.
+        Default to "mlt, can be "geo" as well.
+    sqrt_weighting : bool
+        if set to True, the fitted vectors that are produced through weighting the
+        number of points within each azimuthal bin will be retrieved. 
+        if set to False, the fitted vectors that are produced by equality weighting
+        the number of points within each azimuthal bin will be retrieved.
 
     Return
     ------
     data_dict : dict
+
     """
     import sqlite3
     import datetime as dt
     import numpy as np 
+    from mysql.connector import MySQLConnection
+    import sys
+    sys.path.append("../")
+    from mysql_dbutils.db_config import db_config
+    import logging
 
-    # make db connection for dopsearch
-    if dbName is None:
-        dbName = "master_" + ftype + ".sqlite"
-    conn = sqlite3.connect(baseLocation + dbName)
-    cur = conn.cursor()
-    
-    T1 = "master_cosfit"
+    # construct a db name
+    if db_name is None:
+        db_name = "master_" + coords + "_" +ftype
+
+    # read db config info
+    config =  db_config(config_filename=config_filename, section=section)
+    config_info = config.read_db_config()
+
+    # make a connection to master db
+    try:
+        conn = MySQLConnection(database=db_name, **config_info)
+        cur = conn.cursor(buffered=True)
+    except Exception, e:
+        logging.error(e, exc_info=True)
+
+    # set input_table name
+    if sqrt_weighting:
+        input_table = input_table
+    else:
+        input_table = input_table + "_equal_weighting"
+
+    # formulate column names
+    if coords == "mlt":
+        col_glatc = "mag_glatc"   # glatc -> gridded latitude center
+        col_gltc = "mag_gltc"     # mlt hour in degrees
+        col_gazmc = "mag_gazmc"   # gazmc -> gridded azimuthal center
+        col_gazmc_count = "mag_gazmc_count"
+    if coords == "geo":
+        col_glatc = "geo_glatc"
+        col_gltc = "geo_gltc"    # local time in degrees
+        col_gazmc = "geo_gazmc"
+        col_gazmc_count = "geo_gazmc_count"
+
 
     # select data from the master_cosfit table for the night side
-    command = "SELECT vel_count, vel_mag, vel_dir, glatc, glonc, vel_mag_err, vel_dir_err FROM {tb1}\
-               WHERE glatc BETWEEN {lat_min} AND {lat_max}\
-               ".format(tb1=T1, lat_min=lat_range[0], lat_max=lat_range[1])
+    command = "SELECT vel_count, vel_mag, vel_dir, {glatc}, {gltc}, " +\
+              "vel_mag_err, vel_dir_err, season FROM {tb1} " +\
+              "WHERE ({glatc} BETWEEN {lat_min} AND {lat_max}) " +\
+              "AND season = '{season}'"
+    command = command.format(tb1=input_table, glatc=col_glatc,
+                             gltc = col_gltc, lat_min=lat_range[0],
+                             lat_max=lat_range[1], season=season)
     cur.execute(command)
     rws = cur.fetchall()
 
@@ -40,7 +104,7 @@ def fetch_data(ftype="fitacf", nvel_min=250, lat_range=[52, 59],
     data_dict['glonc'] = np.array([x[4] for x in rws if x[0] >= nvel_min])
     data_dict['vel_mag_err'] = np.array([x[5] for x in rws if x[0] >= nvel_min])
     data_dict['vel_dir_err'] = np.array([x[6] for x in rws if x[0] >= nvel_min])
-
+    data_dict['season'] = np.array([x[7] for x in rws])
 
     # close db connection
     conn.close()
@@ -59,15 +123,18 @@ def pol2cart(phi, rho):
     y = rho * np.sin(phi)
     return(x, y)
 
-
 def vector_plot(ax, data_dict, cmap, bounds, velscl=1, lat_min=50, title="xxx",
-                for_HWM=False, hemi="north", fake_pole=False):
+                hemi="north", fake_pole=False):
     
-    """ plots the flow vectors in MLT coords """
+    """ plots the flow vectors in LAT/LT grids in coords
+
+    Parameters
+    ----------
+    
+    """
 
     import matplotlib.pyplot as plt
     import matplotlib as mpl
-
     from matplotlib.collections import PolyCollection,LineCollection
     import numpy as np
 
@@ -100,23 +167,21 @@ def vector_plot(ax, data_dict, cmap, bounds, velscl=1, lat_min=50, title="xxx",
         x2, y2 = pol2cart(l, 50) 
         ax.plot([x1, x2], [y1, y2], 'k')
 
-    x1, y1 = pol2cart(np.deg2rad(data_dict['glonc']-90), fake_pole_lat-np.abs(data_dict['glatc']))
+    x1, y1 = pol2cart(np.deg2rad(data_dict['glonc']-90),
+                      fake_pole_lat-np.abs(data_dict['glatc']))
 
     # add the vector lines
     lines = []
     intensities = []
     vel_mag = data_dict['vel_mag']
+
     # calculate the angle of the vectors in a tipical x-y axis.
     theta = np.deg2rad(data_dict['glonc'] + 90 - data_dict['vel_dir']) 
 
-    if for_HWM:
-        x2 = x1+vel_mag/velscl*(1.0)*np.cos(theta)
-        y2 = y1+vel_mag/velscl*(1.0)*np.sin(theta)
-    else:
-        x2 = x1+vel_mag/velscl*(-1.0)*np.cos(theta)
-        y2 = y1+vel_mag/velscl*(-1.0)*np.sin(theta)
-    
+    x2 = x1+vel_mag/velscl*(-1.0)*np.cos(theta)
+    y2 = y1+vel_mag/velscl*(-1.0)*np.sin(theta)
     lines.extend(zip(zip(x1,y1),zip(x2,y2)))
+
     #save the param to use as a color scale
     intensities.extend(np.abs(vel_mag))
 
@@ -142,6 +207,7 @@ def vector_plot(ax, data_dict, cmap, bounds, velscl=1, lat_min=50, title="xxx",
     elif hemi=="south":
         ax.annotate("-80", xy=(0, -10), ha="left", va="bottom", fontsize=fnts)
         ax.annotate("-60", xy=(0, -30), ha="left", va="bottom", fontsize=fnts)
+
     # add mlt labels
     ax.annotate("0", xy=(0, -rmax), ha="center", va="top", fontsize=fnts)
     ax.annotate("6", xy=(rmax, 0), ha="left", va="center", fontsize=fnts)
@@ -159,7 +225,6 @@ def add_cbar(fig, coll, bounds, label="Velocity [m/s]", cax=None):
         cbar=fig.colorbar(coll, orientation="vertical", shrink=.65,
                           boundaries=bounds, drawedges=False) 
 
-
     #define the colorbar labels
     l = []
     for i in range(0,len(bounds)):
@@ -174,7 +239,7 @@ def add_cbar(fig, coll, bounds, label="Velocity [m/s]", cax=None):
     return
 
 
-def main(by_season=True, by_f107=False, by_imf_clock_angle=False):
+def main():
 
     import datetime as dt
     import matplotlib.pyplot as plt
@@ -183,16 +248,19 @@ def main(by_season=True, by_f107=False, by_imf_clock_angle=False):
     # input parameters
     #nvel_min=250
     #nvel_min=300
-    nvel_min=50
-    lat_range=[52, 59]
+    nvel_min=10
+    #lat_range=[52, 59]
     #lat_range=[50, 90]
     #lat_range=[50, 70]
-    lat_min = 50
+    #lat_min = 50
     #lat_range=[39, 90]
-    #lat_range=[40, 60]
-    #lat_min = 39
+    lat_range=[40, 60]
+    lat_min = 39
     ftype = "fitacf"
-    #ftype = "fitex"
+    coords = "mlt"
+    sqrt_weighting = True
+    #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
+    input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
 
     # cmap and bounds for color bar
     color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
@@ -200,155 +268,40 @@ def main(by_season=True, by_f107=False, by_imf_clock_angle=False):
     bounds = [0., 8, 17, 25, 33, 42, 10000]
 
     seasons = ["winter", "summer", "equinox"]
-    #seasons = ["winter"]
 
-    if by_season:
-        #fig_dir = "./plots/convection/kp_l_3/data_in_geo/"
-        #fig_dir = "./plots/convection/kp_l_2/data_in_mlt/seasonal/"
-        #fig_dir = "./plots/convection/kp_l_3/data_in_mlt/seasonal/"
-        #fig_dir = "./plots/convection/kp_l_1/data_in_mlt/seasonal/"
-        #fig_dir = "./plots/convection/kp_l_2/data_in_geo/seasonal/"
-        fig_dir = "/home/muhammad/Dropbox/mypapers/paper_02/version_01/figures/"
-        fig_name = "seasonal_convection_lat" + str(lat_range[0]) +"_to_lat" + str(lat_range[1])
-       
-        # create subplots
-        fig, axes = plt.subplots(nrows=len(seasons), ncols=1, figsize=(6,8))
-        fig.subplots_adjust(hspace=0.3)
+    fig_dir = "./plots/convection/kp_l_3/data_in_mlt/"
+    fig_name = "test_seasonal_convection_lat" + str(lat_range[0]) +"_to_lat" + str(lat_range[1])
+   
+    # create subplots
+    fig, axes = plt.subplots(nrows=len(seasons), ncols=1, figsize=(6,8))
+    fig.subplots_adjust(hspace=0.3)
+
+    if len(seasons) == 1:
+        axes = [axes]
+
+    for i, season in enumerate(seasons):
+        # fetches the data from db 
+        data_dict = fetch_data(input_table, lat_range=lat_range,
+                    nvel_min=nvel_min, season=season,
+                    config_filename="../mysql_dbconfig_files/config.ini",
+                    section="midlat", db_name=None, ftype=ftype,
+                    coords=coords, sqrt_weighting=sqrt_weighting)
 
 
-        if len(seasons) == 1:
-            axes = [axes]
+        # plot the flow vectors
+        title = "Velocities, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
+        coll = vector_plot(axes[i], data_dict, cmap, bounds, velscl=10,
+                           lat_min=lat_min, title=title)
 
-        for i, season in enumerate(seasons):
-            # fetches the data from db 
-            #baseLocation="../data/sqlite3/" + season + '/kp_l_3/data_in_geo/'
-            #baseLocation="../data/sqlite3/" + season + '/kp_l_2/data_in_mlt/'
-            baseLocation="../data/sqlite3/" + season + '/kp_l_3/data_in_mlt/'
-            #baseLocation="../data/sqlite3/" + season + '/kp_l_1/data_in_mlt/'
-            #baseLocation="../data/sqlite3/" + season + '/kp_l_2/data_in_geo/'
-            data_dict = fetch_data(ftype=ftype, nvel_min=nvel_min, 
-                            lat_range=lat_range, baseLocation=baseLocation,
-                            dbName=None)
-
-            # plot the flow vectors
-            title = "Velocities, " + season[0].upper()+season[1:] + ", Kp<3"
-            coll = vector_plot(axes[i], data_dict, cmap, bounds, velscl=10,
-                               lat_min=lat_min, title=title)
-
-        # add colorbar
-        fig.subplots_adjust(right=0.80)
-        cbar_ax = fig.add_axes([0.85, 0.25, 0.02, 0.5])
-        add_cbar(fig, coll, bounds, cax=cbar_ax, label="Velocity [m/s]")
-        # save the fig
-        fig.savefig(fig_dir + fig_name + ".png", dpi=500)
-        #plt.show()
-
-    if by_f107:
-
-        #f107_bins = [[0, 100], [100, 175], [175, 500]]
-        #f107_bins = [[0, 100], [100, 150], [150, 500]]
-        #f107_bins = [[0, 100], [105, 130], [130, 500]]
-        #f107_bins = [[0, 90], [105, 125], [130, 500]]
-        f107_bins = [[0, 95], [105, 130], [140, 500]]
-        #f107_bins = [[0, 105], [105, 125], [125, 500]]
-        #f107_bins = [[0, 110], [110, 500]]
-        #f107_bins = [[0, 120], [120, 500]]
-
-        for season in seasons:
-
-            # create subplots
-            fig, axes = plt.subplots(nrows=len(f107_bins), ncols=1, figsize=(6,8))
-            fig.subplots_adjust(hspace=0.3)
-            if len(f107_bins) == 1:
-                axes = [axes]
-
-            fig_dir = "./plots/convection/kp_l_3/data_in_mlt/binned_by_f107/"
-            fig_name = season + "_convection_by_f107_lat" + str(lat_range[0]) +"_to_lat" + str(lat_range[1])
-
-            # fetches the data from db 
-            #baseLocation="../data/sqlite3/" + season + '/kp_l_3/data_in_mlt/'
-            baseLocation="../data/sqlite3/" + season + '/kp_l_3/data_in_mlt/binned_by_f107/'
-            
-            # loop through the f107 bins
-            for i, f107_bin in enumerate(f107_bins):
-                dbName = "f107_" + str(f107_bin[0]) + "_to_" + str(f107_bin[1]) +\
-                            "_" + ftype + ".sqlite"
-
-                data_dict = fetch_data(ftype=ftype, nvel_min=nvel_min, 
-                                lat_range=lat_range, baseLocation=baseLocation,
-                                dbName=dbName)
-
-                # plot the flow vectors
-                title = "Velocities, " + season[0].upper()+season[1:] + ", Kp<3" + ", F10.7=" + str(f107_bin)
-                coll = vector_plot(axes[i], data_dict, cmap, bounds, velscl=10,
-                                   lat_min=lat_min, title=title)
-
-            # add colorbar
-            fig.subplots_adjust(right=0.80)
-            cbar_ax = fig.add_axes([0.85, 0.25, 0.02, 0.5])
-            add_cbar(fig, coll, bounds, cax=cbar_ax, label="Velocity [m/s]")
-            # save the fig
-            fig.savefig(fig_dir + fig_name + ".png", dpi=500)
-            #plt.show()
-
-    if by_imf_clock_angle:
-        
-        # imf clock angle bins
-        #bins = [[65, 115], [245, 295]] 
-        #bins = [[335, 25], [155, 205]]
-
-        #bins = [[330, 30], [150, 210]]
-        #bins = [[315, 45], [135, 225]]
-        bins = [[300, 60], [120, 240]]
-        bins_txt = ["Bz+", "Bz-"]
-        fig_txt =  "_span120_convection_by_imf_Bz_clock_angle_lat_"
-
-#        bins = [[60, 120], [240, 300]] 
-#        bins_txt = ["By+", "By-"]
-#        fig_txt =  "_convection_by_imf_By_clock_angle_lat"
-
-        for season in seasons:
-
-            # create subplots
-            fig, axes = plt.subplots(nrows=len(bins), ncols=1, figsize=(6,8))
-            fig.subplots_adjust(hspace=0.3)
-            if len(bins) == 1:
-                axes = [axes]
-
-            fig_dir = "./plots/convection/kp_l_3/data_in_mlt/binned_by_imf_clock_angle/"
-            fig_name = season + fig_txt + str(lat_range[0]) +"_to_lat" + str(lat_range[1])
-
-            # fetches the data from db 
-            #baseLocation="../data/sqlite3/" + season + '/kp_l_3/data_in_mlt/'
-            baseLocation="../data/sqlite3/" + season + '/kp_l_3/data_in_mlt/binned_by_imf_clock_angle/'
-            
-            # loop through the bins
-            for i, bn in enumerate(bins):
-                dbName = "imf_clock_angle_" + str(bn[0]) + "_to_" + str(bn[1]) +\
-                            "_" + ftype + ".sqlite"
-
-                data_dict = fetch_data(ftype=ftype, nvel_min=nvel_min, 
-                                lat_range=lat_range, baseLocation=baseLocation,
-                                dbName=dbName)
-
-                # plot the flow vectors
-                title = "Velocities, " + season[0].upper()+season[1:] + ", Kp<3" + ", IMF " + bins_txt[i]
-                coll = vector_plot(axes[i], data_dict, cmap, bounds, velscl=10,
-                                   lat_min=lat_min, title=title)
-
-            # add colorbar
-            fig.subplots_adjust(right=0.80)
-            cbar_ax = fig.add_axes([0.85, 0.25, 0.02, 0.5])
-            add_cbar(fig, coll, bounds, cax=cbar_ax, label="Velocity [m/s]")
-            # save the fig
-            fig.savefig(fig_dir + fig_name + ".png", dpi=500)
-            #plt.show()
-
+    # add colorbar
+    fig.subplots_adjust(right=0.80)
+    cbar_ax = fig.add_axes([0.85, 0.25, 0.02, 0.5])
+    add_cbar(fig, coll, bounds, cax=cbar_ax, label="Velocity [m/s]")
+    # save the fig
+    fig.savefig(fig_dir + fig_name + ".png", dpi=500)
+    #plt.show()
 
     return
 
 if __name__ == "__main__":
-    by_season=False
-    by_f107=False
-    by_imf_clock_angle=True
-    main(by_season=by_season, by_f107=by_f107, by_imf_clock_angle=by_imf_clock_angle)
+    main()
