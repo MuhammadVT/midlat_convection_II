@@ -144,11 +144,16 @@ def main():
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/combine_ten_min_median_japan.log",
+    logging.basicConfig(filename="./log_files/combine_ten_min_median_ade_adw.log",
                         level=logging.INFO)
  
     # input parameters
-    rads = ["hok", "hkw"] 
+    #rads = ["hok", "hkw"] 
+    rads = ["ade", "adw"]
+    #rads = ["tig", "unw"]
+    #rads = ["bpk"]
+    #rads= ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+
     ftype="fitacf"
     coords="mlt"
     config_filename="../mysql_dbconfig_files/config.ini"

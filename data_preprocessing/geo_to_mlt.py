@@ -333,7 +333,7 @@ def main(run_in_parallel=True):
     
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/geo_to_mlt_hkw.log",
+    logging.basicConfig(filename="./log_files/geo_to_mlt_ade_adw.log",
                         level=logging.INFO)
     
     # input parameters
@@ -345,8 +345,8 @@ def main(run_in_parallel=True):
     db_name = None       # if set to None default iscat db would be read. 
     
     # run the code for the following radars in parallel
-    rad_list = ["hkw"]
-    #rad_list = ["ade", "adw"]
+    #rad_list = ["hkw"]
+    rad_list = ["ade", "adw"]
     #rad_list = ["tig", "unw"]
     #rad_list = ["bpk"]
     #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]

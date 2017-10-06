@@ -212,22 +212,25 @@ def main(run_in_parallel=False):
     """ Executes the above functions in parallel.
     Unit process runs for a single radar"""
 
-    import multiprocessing
+    import multiprocessing as mp
     import logging
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="../log_files/kp_lte_23_hok_hkw.log",
+    logging.basicConfig(filename="../log_files/kp_lte_23_ade_adw.log",
                         level=logging.INFO)
 
     # initialize parameters
-    rad_list = ["hok", "hkw"]
+    #rad_list = ["hok", "hkw"]
+    rad_list = ["ade", "adw"]
+    #rad_list = ['bks', 'wal', 'fhe', 'fhw', 'cve', 'cvw'] 
     kp_lim = [0.0, 2.3]    # the range boundaries are inclusive
     kp_text = "_to_".join(["".join(str(x).split(".")) for x in kp_lim])
 	
     coords = "mlt"
     ftype="fitacf"
     output_table = "_".join(rad_list) + "_kp_" + kp_text + "_" + ftype
+    #output_table = "six_rads_kp_" + kp_text + "_" + ftype
     isKp_based=True
     isSymH_based=False
     symh_min=-50

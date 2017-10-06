@@ -355,7 +355,7 @@ def main(run_in_parallel=True):
     
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/bin_data_hkw.log",
+    logging.basicConfig(filename="./log_files/bin_data_six_rads.log",
                         level=logging.INFO)
     
     # input parameters
@@ -367,11 +367,11 @@ def main(run_in_parallel=True):
     hemi = "north"       # currently only works for "north".
     
     # run the code for the following radars in parallel
-    rad_list = ["hkw"]
+    #rad_list = ["hkw"]
     #rad_list = ["ade", "adw"]
     #rad_list = ["tig", "unw"]
     #rad_list = ["bpk"]
-    #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+    rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
     
     # loop through the dates
     for rad in rad_list:

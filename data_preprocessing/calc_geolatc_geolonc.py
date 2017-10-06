@@ -357,18 +357,20 @@ def main(run_in_parallel=True):
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/calc_geolatc_geolonc_hkw.log",
+    logging.basicConfig(filename="./log_files/calc_geolatc_geolonc_ade_adw.log",
                         level=logging.INFO)
 
     # input parameters
-    stm = dt.datetime(2015, 1, 1)     # includes sdate
+#    stm = dt.datetime(2011, 1, 1)     # includes sdate
+    stm = dt.datetime(2013, 1, 1)     # includes sdate
+#    stm = dt.datetime(2015, 1, 1)     # includes sdate
 #    stm = dt.datetime(2011, 8, 1)     # includes sdate
     etm = dt.datetime(2017, 1, 1)     # does not include etm
     ftype = "fitacf"
 
     # run the code for the following radars in parallel
-    rad_list = ["hkw"]
-    #rad_list = ["ade", "adw"]
+    #rad_list = ["hkw"]
+    rad_list = ["ade", "adw"]
     #rad_list = ["tig", "unw"]
     #rad_list = ["bpk"]
     #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]

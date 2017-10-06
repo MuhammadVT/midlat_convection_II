@@ -324,14 +324,20 @@ def main(master_table=True, master_summary_table=True):
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/master_table_kp_00_to_23_hok_hkw.log",
+    logging.basicConfig(filename="./log_files/master_table_kp_00_to_23_ade_adw.log",
                         level=logging.INFO)
 
     # input parameters
-    input_table_1 = "hok_hkw_kp_00_to_23_fitacf"
-    output_table_1 = "master_hok_hkw_kp_00_to_23"
-    input_table_2 = "master_hok_hkw_kp_00_to_23"
-    output_table_2 = "master_summary_hok_hkw_kp_00_to_23"
+    #input_table_1 = "hok_hkw_kp_00_to_23_fitacf"
+    #output_table_1 = "master_hok_hkw_kp_00_to_23"
+    #input_table_2 = "master_hok_hkw_kp_00_to_23"
+    #output_table_2 = "master_summary_hok_hkw_kp_00_to_23"
+
+    input_table_1 = "ade_adw_kp_00_to_23_fitacf"
+    output_table_1 = "master_ade_adw_kp_00_to_23"
+    input_table_2 = "master_ade_adw_kp_00_to_23"
+    output_table_2 = "master_summary_ade_adw_kp_00_to_23"
+
     ftype = "fitacf"
     coords = "mlt"
     config_filename="../mysql_dbconfig_files/config.ini"

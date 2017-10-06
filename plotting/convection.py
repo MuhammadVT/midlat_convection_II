@@ -246,21 +246,20 @@ def main():
     import matplotlib as mpl
 
     # input parameters
-    #nvel_min=250
-    #nvel_min=300
-    nvel_min=10
-    #lat_range=[52, 59]
-    #lat_range=[50, 90]
-    #lat_range=[50, 70]
-    #lat_min = 50
-    #lat_range=[39, 90]
-    lat_range=[40, 60]
-    lat_min = 39
+    nvel_min=300
+    #nvel_min=20
+    lat_range=[52, 80]
+    lat_min = 50
+    #lat_range=[39, 60]
+    #lat_min = 38
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
+    rads_txt = "six_rads"
+    #rads_txt = "ade_adw"
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
-    input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
+    #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
+    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23"
 
     # cmap and bounds for color bar
     color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
@@ -270,7 +269,7 @@ def main():
     seasons = ["winter", "summer", "equinox"]
 
     fig_dir = "./plots/convection/kp_l_3/data_in_mlt/"
-    fig_name = "test_seasonal_convection_lat" + str(lat_range[0]) +"_to_lat" + str(lat_range[1])
+    fig_name = rads_txt + "_seasonal_convection_lat" + str(lat_range[0]) +"_to_lat" + str(lat_range[1])
    
     # create subplots
     fig, axes = plt.subplots(nrows=len(seasons), ncols=1, figsize=(6,8))

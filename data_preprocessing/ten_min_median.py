@@ -243,11 +243,12 @@ def main(run_in_parallel=True):
     
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/ten_min_median_hok.log",
+    logging.basicConfig(filename="./log_files/ten_min_median_ade_adw.log",
                         level=logging.INFO)
     # input parameters
     #stm = dt.datetime(2011, 1,1) 
-    stm = dt.datetime(2015, 1,1) 
+    stm = dt.datetime(2013, 1,1) 
+    #stm = dt.datetime(2015, 1,1) 
     etm = dt.datetime(2017, 1,1) 
     ftype = "fitacf"
     coords = "mlt"
@@ -255,8 +256,8 @@ def main(run_in_parallel=True):
     output_dbname = None       # if set to None, default ten_min_median db would be used. 
     
     # run the code for the following radars in parallel
-    rad_list = ["hok"]
-    #rad_list = ["ade", "adw"]
+    #rad_list = ["hok"]
+    rad_list = ["ade", "adw"]
     #rad_list = ["tig", "unw"]
     #rad_list = ["bpk"]
     #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
@@ -296,7 +297,7 @@ def main(run_in_parallel=True):
 if __name__ == "__main__":
     import datetime as dt
     t1 = dt.datetime.now()
-    main(run_in_parallel=False)
+    main(run_in_parallel=True)
     t2 = dt.datetime.now()
     print("Finishing ten-min median filtering took " +\
     str((t2-t1).total_seconds() / 60.) + " mins\n")

@@ -38,8 +38,54 @@ bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - Done
 ade, adw : 01/01/2013 - 01/01/2017, Done
 hok, hkw: 01/01/2015 - 01/01/2017, Done
 bpk : 01/01/2015 - 01/01/2017, Done 
-tig, unw: 01/01/2011 - 
+tig, unw: 01/01/2011 - 01/01/2017, Done
+
+
+# iscat data (low_vel_iscat_event_only is set to False) stored in MySQL db
 
 
 #########################
-# iscat data (low_vel_iscat_event_only is set to False) stored in MySQL db
+# calc_geolatc_geolonc
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+ade, adw : 01/01/2013 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done
+
+# geo_to_mlt
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+ade, adw : 01/01/2013 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done
+
+# bin_data
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+ade, adw : 01/01/2013 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done
+
+##########################
+# ten_min_median
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+ade, adw : 01/01/2013 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done
+
+# combine ten_min_median
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+ade, adw : 01/01/2013 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done
+
+# gmi_based_filter
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+ade, adw : 01/01/2013 - 01/01/2017, Done 
+hok, hkw: 01/01/2015 - 01/01/2017, Done
+
+##########################
+# build master db
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+ade, adw : 01/01/2013 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done
+
+# cosfit
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+ade, adw : 01/01/2013 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done
+
+
+

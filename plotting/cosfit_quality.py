@@ -102,16 +102,18 @@ def by_season():
     import numpy as np
 
     # input parameters
-    nvel_min=50
-    #lat_range=[52, 59]
-    #lat_min = 50
-    lat_range=[39, 60]
-    lat_min = 38
+    nvel_min=300
+    #nvel_min=50
+    lat_range=[52, 59]
+    lat_min = 50
+    #lat_range=[39, 60]
+    #lat_min = 38
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
-    input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
+    #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
+    input_table = "master_cosfit_six_rads_kp_00_to_23"
 
     seasons = ["winter", "summer", "equinox"]
 
@@ -129,7 +131,7 @@ def by_season():
         bounds = np.arange(0, 0.9, 0.1).tolist()
 
     fig_dir = "./plots/convection/kp_l_3/data_in_mlt/"
-    fig_name = "seasonal_cosfit_quality_" + err_type + "_" + str(lat_range[0]) +"_to_lat" + str(lat_range[1])
+    fig_name = "six_rads_seasonal_cosfit_quality_" + err_type + "_" + str(lat_range[0]) +"_to_lat" + str(lat_range[1])
 
     # create subplots
     fig, axes = plt.subplots(nrows=len(seasons), ncols=1, figsize=(6,8))
