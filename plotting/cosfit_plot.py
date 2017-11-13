@@ -143,17 +143,15 @@ if __name__ == "__main__":
     import numpy as np
     import sqlite3
 
-    # points of interest
-    #latc, ltc = 46.5, 0
-    latc_list = [x+0.5 for x in range(52, 60)]
-    ltc_list = range(270, 360, 15) + range(0, 90, 15)
-
     #sqrt_weighting=False
     sqrt_weighting=True
     ftype = "fitacf"
     coords = "mlt"
-    #rads_txt = "six_rads"
-    rads_txt = "ade_adw"
+    rads_txt = "six_rads"
+    #rads_txt = "ade_adw"
+    #rads_txt = "cve_cvw"
+    #rads_txt = "fhe_fhw"
+    #rads_txt = "bks_wal"
     #rads_txt = "hok_hkw"
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
@@ -163,39 +161,89 @@ if __name__ == "__main__":
     season = "winter"
     #season = "summer"
     #season = "equinox"
-    
-    # plotting
-    for latc in latc_list:
-        # create a figure
-        fig, axes = plt.subplots(4,3, sharex=True, sharey=True)
-        plt.subplots_adjust(hspace=0.4)
-        axes = [x for l in axes for x in l]
 
-        fig_dir = "./plots/cosfit_plot/kp_l_3/data_in_mlt/"
-        #fig_name = rads_txt + "_" + season + "_cosfit_mlat"+str(latc) + \
-        #           "_mlt" + str(round(ltc/15., 2))
-        fig_name = rads_txt + "_" + season + "_cosfit_mlat"+str(latc)
-
-
-        for i, ltc in enumerate(ltc_list):
-            ax = axes[i]
-            plot_cosfit(ax, latc, ltc, summary_table, cosfit_table, season=season,
-                        config_filename="../mysql_dbconfig_files/config.ini",
-                        section="midlat", db_name=None, ftype=ftype,
-                        coords=coords, sqrt_weighting=sqrt_weighting)
-
-            # change the font
-            for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
-                         ax.get_xticklabels() + ax.get_yticklabels()):
-                item.set_fontsize(6)
-        for ax in axes:
-            ax.set_xlabel("")
-            ax.set_ylabel("")
+    fixed_lat = False
+    fixed_lt = True
+    # Plot points at a given latitude
+    if fixed_lat:
+        # points of interest
+        #latc, ltc = 46.5, 0
+        latc_list = [x+0.5 for x in range(42, 50)]
+        #latc_list = [x+0.5 for x in range(52, 60)]
+        ltc_list = range(270, 360, 15) + range(0, 90, 15)
         
-        # add legend
-        axes[5].legend(bbox_to_anchor=(1, 0.7), fontsize=5, frameon=False)
+        # plotting
+        for latc in latc_list:
+            # create a figure
+            fig, axes = plt.subplots(4,3, sharex=True, sharey=True)
+            plt.subplots_adjust(hspace=0.4)
+            axes = [x for l in axes for x in l]
 
-        # save the plot
-        fig.savefig(fig_dir + fig_name + ".png", dpi=300)
+            fig_dir = "./plots/cosfit_plot/kp_l_3/data_in_mlt/"
+            #fig_name = rads_txt + "_" + season + "_cosfit_mlat"+str(latc) + \
+            #           "_mlt" + str(round(ltc/15., 2))
+            fig_name = rads_txt + "_" + season + "_cosfit_mlat"+str(latc)
 
-    #plt.show()
+
+            for i, ltc in enumerate(ltc_list):
+                ax = axes[i]
+                plot_cosfit(ax, latc, ltc, summary_table, cosfit_table, season=season,
+                            config_filename="../mysql_dbconfig_files/config.ini",
+                            section="midlat", db_name=None, ftype=ftype,
+                            coords=coords, sqrt_weighting=sqrt_weighting)
+
+                # change the font
+                for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
+                             ax.get_xticklabels() + ax.get_yticklabels()):
+                    item.set_fontsize(6)
+            for ax in axes:
+                ax.set_xlabel("")
+                ax.set_ylabel("")
+            
+            # add legend
+            axes[5].legend(bbox_to_anchor=(1, 0.7), fontsize=5, frameon=False)
+
+            # save the plot
+            fig.savefig(fig_dir + fig_name + ".png", dpi=300)
+
+    # Plot points at a given local time
+    if fixed_lt:
+        # points of interest
+        #latc, ltc = 46.5, 0
+        #latc_list = [x+0.5 for x in range(42, 50)]
+        latc_list = [x+0.5 for x in range(52, 64)]
+        #ltc_list = range(270, 360, 15) + range(0, 90, 15)
+        ltc_list = range(270, 360, 30) + range(0, 120, 30)
+        
+        # plotting
+        for ltc in ltc_list:
+            # create a figure
+            fig, axes = plt.subplots(4,3, sharex=True, sharey=True)
+            plt.subplots_adjust(hspace=0.4)
+            axes = [x for l in axes for x in l]
+
+            fig_dir = "./plots/cosfit_plot/kp_l_3/data_in_mlt/"
+            fig_name = rads_txt + "_" + season + "_mlt" + str(round(ltc/15., 0))
+
+
+            for i, latc in enumerate(latc_list):
+                ax = axes[i]
+                plot_cosfit(ax, latc, ltc, summary_table, cosfit_table, season=season,
+                            config_filename="../mysql_dbconfig_files/config.ini",
+                            section="midlat", db_name=None, ftype=ftype,
+                            coords=coords, sqrt_weighting=sqrt_weighting)
+
+                # change the font
+                for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
+                             ax.get_xticklabels() + ax.get_yticklabels()):
+                    item.set_fontsize(6)
+            for ax in axes:
+                ax.set_xlabel("")
+                ax.set_ylabel("")
+            
+            # add legend
+            axes[5].legend(bbox_to_anchor=(1, 0.7), fontsize=5, frameon=False)
+
+            # save the plot
+            fig.savefig(fig_dir + fig_name + ".png", dpi=300)
+
