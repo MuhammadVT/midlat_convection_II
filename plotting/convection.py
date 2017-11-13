@@ -4,7 +4,7 @@ matplotlib.use('Agg')
 def fetch_data(input_table, lat_range=[52, 59], nvel_min=250, season="winter",
                config_filename="../mysql_dbconfig_files/config.ini",
                section="midlat", db_name=None, ftype="fitacf",
-	       coords="mlt", sqrt_weighting=True):
+	       coords="mlt", sqrt_weighting=True, limit_to_night=True):
 
     """ fetch fitted data from the master db into a dict
 
@@ -85,10 +85,17 @@ def fetch_data(input_table, lat_range=[52, 59], nvel_min=250, season="winter",
 
 
     # select data from the master_cosfit table for the night side
-    command = "SELECT vel_count, vel_mag, vel_dir, {glatc}, {gltc}, " +\
-              "vel_mag_err, vel_dir_err, season FROM {tb1} " +\
-              "WHERE ({glatc} BETWEEN {lat_min} AND {lat_max}) " +\
-              "AND season = '{season}'"
+    if limit_to_night:
+        command = "SELECT vel_count, vel_mag, vel_dir, {glatc}, {gltc}, " +\
+                  "vel_mag_err, vel_dir_err, season FROM {tb1} " +\
+                  "WHERE ({glatc} BETWEEN {lat_min} AND {lat_max}) " +\
+                  "AND (({gltc} BETWEEN 269 AND 361) or ({gltc} BETWEEN 0 AND 91)) " +\
+                  "AND season = '{season}'"
+    else:
+        command = "SELECT vel_count, vel_mag, vel_dir, {glatc}, {gltc}, " +\
+                  "vel_mag_err, vel_dir_err, season FROM {tb1} " +\
+                  "WHERE ({glatc} BETWEEN {lat_min} AND {lat_max}) " +\
+                  "AND season = '{season}'"
     command = command.format(tb1=input_table, glatc=col_glatc,
                              gltc = col_gltc, lat_min=lat_range[0],
                              lat_max=lat_range[1], season=season)
@@ -178,6 +185,14 @@ def vector_plot(ax, data_dict, cmap, bounds, velscl=1, lat_min=50, title="xxx",
     # calculate the angle of the vectors in a tipical x-y axis.
     theta = np.deg2rad(data_dict['glonc'] + 90 - data_dict['vel_dir']) 
 
+    # make the points sparse
+    sparse_factor = 2
+    x1 = np.array([x1[i] for i in range(len(x1)) if i%sparse_factor==0])
+    y1 = np.array([y1[i] for i in range(len(y1)) if i%sparse_factor==0])
+    vel_mag = np.array([vel_mag[i] for i in range(len(vel_mag)) if i%sparse_factor==0])
+    theta = np.array([theta[i] for i in range(len(theta)) if i%sparse_factor==0])
+
+
     x2 = x1+vel_mag/velscl*(-1.0)*np.cos(theta)
     y2 = y1+vel_mag/velscl*(-1.0)*np.sin(theta)
     lines.extend(zip(zip(x1,y1),zip(x2,y2)))
@@ -246,20 +261,33 @@ def main():
     import matplotlib as mpl
 
     # input parameters
-    nvel_min=300
-    #nvel_min=20
-    lat_range=[52, 80]
+    #nvel_min=300
+    nvel_min=100
+    lat_range=[52, 59]
     lat_min = 50
-    #lat_range=[39, 60]
-    #lat_min = 38
+
+    # for HOK, HKW radars
+#    nvel_min=100
+#    lat_range=[42, 49]
+#    lat_min = 40
+
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
-    rads_txt = "six_rads"
+    #rads_txt = "six_rads"
+    rads_txt = "cve_cvw"
+    #rads_txt = "fhe_fhw"
+    #rads_txt = "bks_wal"
     #rads_txt = "ade_adw"
+    #rads_txt = "hok_hkw"
+
+    #years = [2015, 2016]
+    #years_txt = "_years_" + "_".join([str(x) for x in years])
+    years_txt = ""
+
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
-    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23"
+    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23" + years_txt
 
     # cmap and bounds for color bar
     color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
@@ -269,7 +297,8 @@ def main():
     seasons = ["winter", "summer", "equinox"]
 
     fig_dir = "./plots/convection/kp_l_3/data_in_mlt/"
-    fig_name = rads_txt + "_seasonal_convection_lat" + str(lat_range[0]) +"_to_lat" + str(lat_range[1])
+    fig_name = rads_txt + years_txt + "_seasonal_convection_lat" + str(lat_range[0]) +\
+               "_to_lat" + str(lat_range[1]) + "_nvel_min_" + str(nvel_min)
    
     # create subplots
     fig, axes = plt.subplots(nrows=len(seasons), ncols=1, figsize=(6,8))
@@ -297,7 +326,7 @@ def main():
     cbar_ax = fig.add_axes([0.85, 0.25, 0.02, 0.5])
     add_cbar(fig, coll, bounds, cax=cbar_ax, label="Velocity [m/s]")
     # save the fig
-    fig.savefig(fig_dir + fig_name + ".png", dpi=500)
+    fig.savefig(fig_dir + fig_name + ".png", dpi=300)
     #plt.show()
 
     return
