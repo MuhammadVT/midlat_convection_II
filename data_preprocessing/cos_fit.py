@@ -251,14 +251,26 @@ if __name__ == "__main__":
     # MySQL server communication will be written.
 #    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_hok_hkw_azbin_nvel_min_5.log",
 #                        level=logging.INFO)
-    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_ade_adw.log",
+#   logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_six_rads_years_2013_2014.log",
+#                       level=logging.INFO)
+    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_bks_wal.log",
                         level=logging.INFO)
 
     # initialize parameters
-    #input_table = "master_summary_six_rads_kp_00_to_23"
-    #output_table = "master_cosfit_six_rads_kp_00_to_23"
-    input_table = "master_summary_ade_adw_kp_00_to_23"
-    output_table = "master_cosfit_ade_adw_kp_00_to_23"
+    
+    #selected_years = [2015, 2016]
+    #years_txt = "_years_" + "_".join([str(x) for x in selected_years])
+    years_txt = ""
+    #rads_txt = "six_rads"
+    rads_txt = "bks_wal"
+    input_table = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
+    output_table = "master_cosfit_" + rads_txt + "_kp_00_to_23" + years_txt
+
+#    #input_table = "master_summary_six_rads_kp_00_to_23"
+#    #output_table = "master_cosfit_six_rads_kp_00_to_23"
+#    input_table = "master_summary_ade_adw_kp_00_to_23"
+#    output_table = "master_cosfit_ade_adw_kp_00_to_23"
+
     cos_fit(input_table, output_table, db_name=None,
             config_filename="../mysql_dbconfig_files/config.ini",
             section="midlat", ftype="fitacf", coords="mlt",
