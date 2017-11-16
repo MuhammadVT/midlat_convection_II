@@ -658,13 +658,182 @@ def master_summary_by_year_season(input_table, output_table, coords="mlt", db_na
 
     return
 
+def master_summary_by_month(input_table, output_table, coords="mlt", db_name=None,
+                            config_filename="../mysql_dbconfig_files/config.ini",
+                            section="midlat"):
+    
+    """ stores the summay statistics of the data in master table into 
+    a different table in the same database.
+    Time and rad informatin are all lost at this point.
+
+    Parameters
+    ----------
+    input_table : str
+        Name of a master table in master db
+    output_table : str
+        Name of a master_summary table in master db
+    coords : str
+        Coordinates in which the binning process took place.
+        Default to "mlt, can be "geo" as well. 
+    radar_pair = list
+        a pair of three-character radar names
+    config_filename: str
+        name and path of the configuration file
+    section: str, default to "midlat"
+        section of database configuration
+    db_name : str, default to None
+        Name of the master db
+
+    Returns
+    -------
+    Nothing
+
+    """
+    import datetime as dt
+    import numpy as np 
+    from mysql.connector import MySQLConnection
+    import sys
+    sys.path.append("../")
+    from mysql_dbutils.db_config import db_config
+    import logging
+
+    # construct a db name
+    if db_name is None:
+        db_name = "master_" + coords + "_" +ftype
+
+    # read db config info
+    config =  db_config(config_filename=config_filename, section=section)
+    config_info = config.read_db_config()
+
+    # make a connection to master db
+    try:
+        conn = MySQLConnection(database=db_name, **config_info)
+        cur = conn.cursor(buffered=True)
+    except Exception, e:
+        logging.error(e, exc_info=True)
+
+    # create a table
+    if coords == "mlt":
+        command = "CREATE TABLE IF NOT EXISTS {tb}" +\
+                  "(vel_mean float(9,2)," +\
+                  " vel_median float(9,2)," +\
+                  " vel_std float(9,2)," +\
+                  " vel_count INT," +\
+                  " mag_glatc float(7,2)," +\
+                  " mag_gltc float(8,2)," +\
+                  " mag_gazmc SMALLINT," +\
+                  " month SMALLINT," +\
+                  " CONSTRAINT grid_month PRIMARY KEY (" +\
+                  "mag_glatc, mag_gltc, mag_gazmc, month))"
+    elif coords == "geo":
+        command = "CREATE TABLE IF NOT EXISTS {tb}" +\
+                  "(vel_mean float(9,2)," +\
+                  " vel_median float(9,2)," +\
+                  " vel_std float(9,2)," +\
+                  " vel_count INT," +\
+                  " geo_glatc float(7,2)," +\
+                  " geo_gltc float(8,2)," +\
+                  " geo_gazmc SMALLINT," +\
+                  " month SMALLINT," +\
+                  " CONSTRAINT grid_month PRIMARY KEY (" +\
+                  "geo_glatc, geo_gltc, geo_gazmc, month))"
+
+    command = command.format(tb=output_table)
+    try:
+        cur.execute(command)
+    except Exception, e:
+        logging.error(e, exc_info=True)
+
+    if coords == "mlt":
+	command = "SELECT AVG(vel), STD(vel), COUNT(vel), " +\
+                  "mag_glatc, mag_gltc, mag_gazmc, MONTH(datetime) " +\
+		  "FROM {tb1} "+\
+                  "GROUP BY mag_glatc, mag_gltc, mag_gazmc, MONTH(datetime)"
+    elif coords == "geo":
+	command = "SELECT AVG(vel), STD(vel), COUNT(vel), " +\
+                  "geo_glatc, geo_gltc, geo_gazmc, MONTH(datetime) " +\
+		  "FROM {tb1} "+\
+                  "GROUP BY geo_glatc, geo_gltc, geo_gazmc, MONTH(datetime)"
+    command = command.format(tb1=input_table)
+    print command
+
+    # check the db connection before fetching 
+    if not conn.is_connected():
+	conn.reconnect()
+    # fetch the data
+    try:
+	cur.execute(command)
+    except Exception, e:
+	logging.error(e, exc_info=True)
+    rows = cur.fetchall()
+
+    # insert the data into a table
+    if rows:
+	if coords == "mlt":
+	    command = "INSERT IGNORE INTO {tb2} (vel_mean, vel_median, vel_std, vel_count, " +\
+                      "mag_glatc, mag_gltc, mag_gazmc, month) " +\
+                      "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+	elif coords == "geo":
+	    command = "INSERT IGNORE INTO {tb2} (vel_mean, vel_median, vel_std, vel_count, " +\
+                      "geo_glatc, geo_gltc, geo_gazmc, month) " +\
+                      "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+	command = command.format(tb2=output_table)
+	for rw in rows:
+            vel_mean, vel_std, vel_count, lat, lt, azm, month =rw
+
+            # find median
+            if coords == "mlt":
+                command_tmp = "SELECT vel FROM {tb1} " +\
+                              "WHERE mag_glatc={lat} and mag_gltc={lt} and "+\
+                              "mag_gazmc={azm} and MONTH(datetime)={month}"
+            elif coords == "geo":
+                command_tmp = "SELECT vel FROM {tb1} " +\
+                              "WHERE geo_glatc={lat} and geo_gltc={lt} and "+\
+                              "geo_gazmc={azm} and MONTH(datetime)={month}"
+            command_tmp = command_tmp.format(tb1=input_table, lat=lat, lt=lt,
+                                             azm=azm, month=month)
+            try:
+                cur.execute(command_tmp)
+            except Exception, e:
+                logging.error(e, exc_info=True)
+            vels_tmp = cur.fetchall()
+            vels_tmp = [x[0] for x in vels_tmp]
+            vel_median = np.median(vels_tmp)
+
+	    # check the db connection before inserting
+	    if not conn.is_connected():
+		conn.reconnect()
+	    # insert the data
+	    try:
+		cur.execute(command,
+                            (round(vel_mean,2), round(vel_median,2), round(vel_std,2),
+                             vel_count, lat, lt, azm, month))
+	    except Exception, e:
+		logging.error(e, exc_info=True)
+
+    # check the db connection before committing
+    if not conn.is_connected():
+	conn.reconnect()
+    # commit the change
+    try:
+	conn.commit()
+    except Exception, e:
+	logging.error(e, exc_info=True)
+
+    # close db connections
+    conn.close()
+
+    return
+
+
+
 def main(master_table=True, master_summary_table=True):
     import datetime as dt
     import logging
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/master_table_kp_00_to_23_six_rads_2015_2016.log",
+    logging.basicConfig(filename="./log_files/master_table_kp_00_to_23_ade_adw_2015_2016.log",
                         level=logging.INFO)
 
     # input parameters
@@ -680,18 +849,20 @@ def main(master_table=True, master_summary_table=True):
 
 
 
-    selected_years=[2015, 2016]
-    #grouped_month=[[1,2], [3,4], [5,6], [7,8], [9,10], [11, 12]]
-
 
     #rads_txt = "bks_wal"
-    rads_txt = "six_rads"
+    #rads_txt = "six_rads"
+    rads_txt = "ade_adw"
+
+    selected_years=[2015, 2016]
     years_txt = "_years_" + "_".join([str(x) for x in selected_years])
+    #years_txt = ""
+
     input_table_1 = rads_txt + "_kp_00_to_23_fitacf"
     output_table_1 = "master_" + rads_txt + "_kp_00_to_23"
     input_table_2 = "master_" + rads_txt + "_kp_00_to_23"
     output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
-    #output_table_2 = "master_summary_cve_cvw_kp_00_to_23" + years_txt
+    #output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23_by_month"
 
     ftype = "fitacf"
     coords = "mlt"
@@ -712,10 +883,17 @@ def main(master_table=True, master_summary_table=True):
     if master_summary_table:
         # build a summary table
         print "building a master_summary table"
+
+#        master_summary_by_month(input_table_2, output_table_2, coords=coords,
+#                                db_name=output_dbname,
+#                                config_filename="../mysql_dbconfig_files/config.ini",
+#                                section="midlat")
+
 #        master_summary_by_season(input_table_2, output_table_2, coords=coords,
 #                               db_name=output_dbname,
 #                               config_filename="../mysql_dbconfig_files/config.ini",
 #                               section="midlat")
+
 #        master_summary_by_radar_season(input_table_2, output_table_2, coords=coords,
 #                                       db_name=output_dbname,
 #                                       radar_pair=["cve", "cvw"],
