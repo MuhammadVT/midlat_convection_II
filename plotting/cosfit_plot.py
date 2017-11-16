@@ -64,13 +64,14 @@ def plot_cosfit(ax, latc, ltc, summary_table, cosfit_table, season="winter",
     ltc = round(possible_lts[ltc_idx],2)
     
     # Find the AZM and LOS info
-    command = "SELECT vel_median, vel_count, {gazmc} FROM {tb} " +\
+    command = "SELECT vel_median, vel_count, {gazmc}, vel_std FROM {tb} " +\
               "WHERE {glatc}={lat} AND {gltc}={lt} AND season='{season}' ORDER BY {gazmc}"
     command = command.format(tb=summary_table, glatc=col_glatc, gltc = col_gltc,
                              gazmc = col_gazmc, lat=latc, lt=ltc, season=season)
     cur.execute(command)
     rows = cur.fetchall()
     median_vel = -np.array([x[0] for x in rows])
+    vel_std = np.array([x[3] for x in rows])
     gazmc_vel_count = np.array([x[1] for x in rows])
     weight =  np.sqrt(gazmc_vel_count)
     azm = np.array([x[2] for x in rows])
@@ -97,6 +98,10 @@ def plot_cosfit(ax, latc, ltc, summary_table, cosfit_table, season="winter",
     # plot the LOS data
     ax.scatter(azm, median_vel, marker='o',c='k', s=0.6*weight,
                edgecolors="face", label="LOS Vel.")
+
+    # add error bars to LOS vels
+    ax.errorbar(azm, median_vel, yerr=vel_std, capsize=1, mfc='k',
+            fmt='o', ms=2, elinewidth=.5, mec='k', ecolor="k")
 
     # plot the cosfit curve
     #x_fit = np.arange(0, 360, 1)
@@ -168,8 +173,8 @@ if __name__ == "__main__":
     if fixed_lat:
         # points of interest
         #latc, ltc = 46.5, 0
-        latc_list = [x+0.5 for x in range(42, 50)]
-        #latc_list = [x+0.5 for x in range(52, 60)]
+        #latc_list = [x+0.5 for x in range(42, 50)]
+        latc_list = [x+0.5 for x in range(52, 60)]
         ltc_list = range(270, 360, 15) + range(0, 90, 15)
         
         # plotting
@@ -210,7 +215,7 @@ if __name__ == "__main__":
     if fixed_lt:
         # points of interest
         #latc, ltc = 46.5, 0
-        #latc_list = [x+0.5 for x in range(42, 50)]
+        #latc_list = [x+0.5 for x in range(42, 54)]
         latc_list = [x+0.5 for x in range(52, 64)]
         #ltc_list = range(270, 360, 15) + range(0, 90, 15)
         ltc_list = range(270, 360, 30) + range(0, 120, 30)
