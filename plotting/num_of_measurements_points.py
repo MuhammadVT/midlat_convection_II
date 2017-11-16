@@ -98,21 +98,28 @@ def by_season():
 
 
     # input parameters
-    nvel_min=50
-    #lat_range=[52, 59]
-    #lat_min = 50
-    lat_range=[39, 60]
-    lat_min = 38
+    #nvel_min=300
+    nvel_min=100
+    lat_range=[53, 60]
+    lat_min = 50
+
+#    nvel_min=100
+#    lat_range=[41, 50]
+#    lat_min = 40
+
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
-    #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
-    input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
+    #rads_txt = "six_rads"
+    rads_txt = "ade_adw"
+    #rads_txt = "hok_hkw"
+    #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
+    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23"
 
     seasons = ["winter", "summer", "equinox"]
 
-    fig_dir = "./plots/convection/kp_l_3/data_in_mlt/"
-    fig_name = "seasonal_num_measurement_points"
+    fig_dir = "./plots/num_measurement_points/kp_l_3/data_in_mlt/"
+    fig_name = rads_txt + "_seasonal_num_measurement_points"
    
     # create subplots
     fig, axes = plt.subplots(nrows=len(seasons), ncols=1, figsize=(6,8))
@@ -121,11 +128,11 @@ def by_season():
     # build a custom color map and bounds
     color_list = ['purple', 'b', 'dodgerblue', 'c', 'g', 'y', 'orange', 'r']
     cmap = mpl.colors.ListedColormap(color_list)
-    #bounds = range(250, 2250, 250)
-    bounds = range(0, 800, 100)
-    bounds[0] = 50
-    bounds.append(10000)
-
+    bounds = range(0, 2400, 300)
+    #bounds = range(0, 8000, 1000)
+    #bounds = range(100, 800, 100)
+    bounds[0] = nvel_min
+    bounds.append(20000)
 
     if len(seasons) == 1:
         axes = [axes]
@@ -152,10 +159,9 @@ def by_season():
     # save the fig
     fig.savefig(fig_dir + fig_name + ".png", dpi=300)
     #fig.savefig(fig_dir + fig_name + ".pdf", format="pdf")
-
 #    plt.show()
 
-    return fig
+    return
 
 def by_imf_clock_angle():
 
