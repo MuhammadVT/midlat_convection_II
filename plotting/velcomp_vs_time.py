@@ -50,7 +50,7 @@ def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
         # plot the velocities for each MLAT
         ax.scatter(vel_mlt_jj, vel_comp_jj, c=color_list[jj],
                 #marker='o', s=3, linewidths=.5, edgecolors='face', label=str(int(mlat)))
-                marker='o', s=3, linewidths=.5, edgecolors='face', label=str(mlat))
+                marker='o', s=2, linewidths=.5, edgecolors='face', label=str(mlat))
 
         if add_err_bar:
             ax.errorbar(vel_mlt_jj, vel_comp_jj, yerr=vel_comp_err_jj, mfc=color_list[jj],
@@ -68,7 +68,8 @@ def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
     if center_at_zero_mlt:
         ax.set_xlim([-12, 12])
         # add legend
-        ax.legend(bbox_to_anchor=(0.98, 0.90), fontsize=7)
+        #ax.legend(bbox_to_anchor=(0.98, 0.90), fontsize=7)
+        ax.legend(loc="center right", fontsize=6)
     else:
         ax.set_xlim([0, 24])
         # add legend
@@ -95,12 +96,23 @@ def main(by_season=True, by_f107=False, by_imf_clock_angle=False):
     import numpy as np
 
     # input parameters
-    nvel_min=300
-    #nvel_min=50
-    #del_lat=3
+#    nvel_min=300
+#    #del_lat=3
+#    del_lat=1
+#    #lat_range=[58, 65]
+#    lat_range=[52, 59]
+
+    nvel_min=100
     del_lat=1
     #lat_range=[58, 65]
-    lat_range=[52, 59]
+    lat_range=[53, 60]
+
+
+#    nvel_min=100
+#    del_lat=1
+#    #lat_range=[58, 65]
+#    lat_range=[42, 49]
+
 
     glatc_list = np.arange(lat_range[1]-0.5, lat_range[0]-0.5, -del_lat)
     #lat_range=[40, 60]
@@ -115,18 +127,18 @@ def main(by_season=True, by_f107=False, by_imf_clock_angle=False):
     coords = "mlt"
 
     #veldir="all"
-    #veldir="zonal"
-    veldir="meridional"
+    veldir="zonal"
+    #veldir="meridional"
     center_at_zero_mlt=True
     #center_at_zero_mlt=False
 
     seasons = ["winter", "summer", "equinox"]
     #seasons = ["winter"]
 
-
     sqrt_weighting = True
-    rads_txt = "six_rads"
-    #rads_txt = "ade_adw"
+    #rads_txt = "six_rads"
+    rads_txt = "ade_adw"
+    #rads_txt = "hok_hkw"
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
     input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23"
@@ -135,10 +147,10 @@ def main(by_season=True, by_f107=False, by_imf_clock_angle=False):
 
         fig_dir = "./plots/velcomp_vs_time/kp_l_3/data_in_mlt/"
         if center_at_zero_mlt:
-            fig_name = "seasonal_" + veldir+ "_vel_vs_ltm_c0" +\
+            fig_name = rads_txt + "_seasonal_" + veldir+ "_vel_vs_ltm_c0" +\
                        "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
         else:
-            fig_name = "seasonal_" + veldir+ "_vel_vs_ltm" +\
+            fig_name = rads_txt + "_seasonal_" + veldir+ "_vel_vs_ltm" +\
                        "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
 
         # create subplots
@@ -158,10 +170,10 @@ def main(by_season=True, by_f107=False, by_imf_clock_angle=False):
 
             # plot the flow vector components
             if veldir == "all" :
-                title = "Velocity Magnitude, " + season[0].upper()+season[1:] + ", Kp<3"
+                title = "Velocity Magnitude, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
             else:
                 title = veldir[0].upper()+veldir[1:] + " Velocities, " +\
-                        season[0].upper()+season[1:] + ", Kp<3"
+                        season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
             vel_vs_lt(axes[i], data_dict, veldir=veldir, center_at_zero_mlt=center_at_zero_mlt,
                     glatc_list=glatc_list, title=title, add_err_bar=add_err_bar)
 
@@ -220,9 +232,9 @@ def main(by_season=True, by_f107=False, by_imf_clock_angle=False):
 
                 # plot the flow vector components
                 if veldir == "all" :
-                    title = "Velocity Magnitude, " + season[0].upper()+season[1:] + ", Kp<2"
+                    title = "Velocity Magnitude, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
                 else:
-                    title = veldir[0].upper()+veldir[1:] + " Velocities, " + season[0].upper()+season[1:] + ", Kp<3" + ", F10.7=" + str(f107_bin)
+                    title = veldir[0].upper()+veldir[1:] + " Velocities, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+" + ", F10.7=" + str(f107_bin)
                 vel_vs_lt(axes[i], data_dict, veldir=veldir, center_at_zero_mlt=center_at_zero_mlt,
                         glatc_list=glatc_list, title=title, add_err_bar=add_err_bar)
 
@@ -281,10 +293,10 @@ def main(by_season=True, by_f107=False, by_imf_clock_angle=False):
 
                 # plot the flow vector components
                 if veldir == "all" :
-                    title = "Velocity Magnitude, " + season[0].upper()+season[1:] + ", Kp<2"
+                    title = "Velocity Magnitude, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
                 else:
                     title = veldir[0].upper()+veldir[1:] + " Velocities, " + season[0].upper()+season[1:] + \
-                        ", Kp<3" + ", IMF " + bins_txt[i]
+                        r", Kp $\leq$ 2+" + ", IMF " + bins_txt[i]
                 vel_vs_lt(axes[i], data_dict, veldir=veldir, center_at_zero_mlt=center_at_zero_mlt,
                         glatc_list=glatc_list, title=title, add_err_bar=add_err_bar)
 
