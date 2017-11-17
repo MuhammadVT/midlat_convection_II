@@ -1,8 +1,17 @@
 import matplotlib
 matplotlib.use('Agg')
 
+import datetime as dt
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from convection import fetch_data
+from matplotlib.ticker import MultipleLocator
+import numpy as np
+
+
 def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
-               glatc_list=None, title="xxx", add_err_bar=False):
+               glatc_list=None, title="xxx", add_err_bar=False,
+               color_list=None, marker_size=2, marker_type="o"):
     
     """ plots the flow vectors in local time (MLT or SLT) coords
 
@@ -34,7 +43,8 @@ def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
     vel_mlt = data_dict['glonc'] / 15.
     
     # colors of different lines
-    color_list = ['darkblue', 'b', 'dodgerblue', 'c', 'g', 'orange', 'r']
+    if color_list is None:
+        color_list = ['darkblue', 'b', 'dodgerblue', 'c', 'g', 'orange', 'r']
     color_list.reverse()
 
     # MLATs
@@ -50,12 +60,12 @@ def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
         # plot the velocities for each MLAT
         ax.scatter(vel_mlt_jj, vel_comp_jj, c=color_list[jj],
                 #marker='o', s=3, linewidths=.5, edgecolors='face', label=str(int(mlat)))
-                marker='o', s=2, linewidths=.5, edgecolors='face', label=str(mlat))
+                marker=marker_type, s=marker_size, linewidths=.5, edgecolors='face', label=str(mlat))
 
         if add_err_bar:
             ax.errorbar(vel_mlt_jj, vel_comp_jj, yerr=vel_comp_err_jj, mfc=color_list[jj],
                     #marker='o', s=3, linewidths=.5, edgecolors='face', label=str(int(mlat)))
-                    fmt='o', ms=2, elinewidth=.5, mec=color_list[jj], ecolor="k")
+                    fmt=marker_type, ms=marker_size, elinewidth=.5, mec=color_list[jj], ecolor="k")
 
     # add text
     ax.set_title(title, fontsize="small")
@@ -79,21 +89,14 @@ def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
     if veldir == "all":
         ax.set_ylim([0, 60])
     else:
-        ax.set_ylim([-60, 50])
+        ax.set_ylim([-65, 25])
     
     # axis labels
     ax.set_ylabel("Vel [m/s]")
 
     return
 
-def main(by_season=True, by_f107=False, by_imf_clock_angle=False):
-
-    import datetime as dt
-    import matplotlib.pyplot as plt
-    import matplotlib as mpl
-    from convection import fetch_data
-    from matplotlib.ticker import MultipleLocator
-    import numpy as np
+def by_season():
 
     # input parameters
 #    nvel_min=300
@@ -143,43 +146,341 @@ def main(by_season=True, by_f107=False, by_imf_clock_angle=False):
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
     input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23"
 
-    if by_season:
 
-        fig_dir = "./plots/velcomp_vs_time/kp_l_3/data_in_mlt/"
-        if center_at_zero_mlt:
-            fig_name = rads_txt + "_seasonal_" + veldir+ "_vel_vs_ltm_c0" +\
-                       "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
+    fig_dir = "./plots/velcomp_vs_time/kp_l_3/data_in_mlt/"
+    if center_at_zero_mlt:
+        fig_name = rads_txt + "_seasonal_" + veldir+ "_vel_vs_ltm_c0" +\
+                   "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
+    else:
+        fig_name = rads_txt + "_seasonal_" + veldir+ "_vel_vs_ltm" +\
+                   "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
+
+    # create subplots
+    fig, axes = plt.subplots(nrows=len(seasons), ncols=1, figsize=None, sharex=True)
+    fig.subplots_adjust(hspace=0.3)
+
+    if len(seasons) == 1:
+        axes = [axes]
+
+    for i, season in enumerate(seasons):
+        # fetches the data from db 
+        data_dict = fetch_data(input_table, lat_range=lat_range,
+                    nvel_min=nvel_min, season=season,
+                    config_filename="../mysql_dbconfig_files/config.ini",
+                    section="midlat", db_name=None, ftype=ftype,
+                    coords=coords, sqrt_weighting=sqrt_weighting)
+
+        # plot the flow vector components
+        if veldir == "all" :
+            title = "Velocity Magnitude, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
         else:
-            fig_name = rads_txt + "_seasonal_" + veldir+ "_vel_vs_ltm" +\
-                       "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
+            title = veldir[0].upper()+veldir[1:] + " Velocities, " +\
+                    season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
+        vel_vs_lt(axes[i], data_dict, veldir=veldir, center_at_zero_mlt=center_at_zero_mlt,
+                glatc_list=glatc_list, title=title, add_err_bar=add_err_bar)
+
+    # set axis label
+    axes[-1].set_xlabel("MLT")
+    #axes[-1].set_xlabel("Solar Local Time")
+    axes[-1].xaxis.set_major_locator(MultipleLocator(base=3))
+    if center_at_zero_mlt:
+        xlabels = [item.get_text() for item in axes[-1].get_xticklabels()]
+        xlabels = [str(x) for x in range(12, 24, 3) + range(0, 15, 3)]
+        plt.xticks(range(-12, 15, 3), xlabels)
+
+    # save the fig
+    fig.savefig(fig_dir + fig_name + ".png", dpi=300)
+    #plt.show()
+
+    return
+
+def six_rads_by_year():
+
+    # input parameters
+    nvel_min=100
+    del_lat=1
+    #lat_range=[52, 58]
+    lat_range=[52, 61]
+    glatc_list = np.arange(lat_range[0]+0.5, lat_range[1]+0.5, del_lat)
+    if len(glatc_list) == 0:
+        glatc_list = np.array([lat_range[0]]+0.5)
+    
+    #add_err_bar = True
+    add_err_bar = False
+    ftype = "fitacf"
+    coords = "mlt"
+
+    #veldir="all"
+    #veldir="zonal"
+    veldir="meridional"
+    center_at_zero_mlt=True
+    #center_at_zero_mlt=False
+    sqrt_weighting = True
+
+    seasons = ["winter", "equinox", "summer"]
+    #rads_txt = "six_rads"
+    #years_list = [[2011, 2012], [2013, 2014], [2015, 2016], None]
+    #legend_txt = ["11_12", "13_14", "15_16", "11_16"]
+
+    rads_txt = "ade_adw"
+    years_list = [[2013, 2014], [2015, 2016], None]
+    legend_txt = ["13_14", "15_16", "13_16"]
+
+    for season in seasons:
+
+	fig_dir = "./plots/velcomp_vs_time/kp_l_3/data_in_mlt/"
+	if center_at_zero_mlt:
+	    fig_name = rads_txt + "_by_year_" + "_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
+		       "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
+	else:
+	    fig_name = rads_txt + "_by_year_" + "_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
+		       "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
+
+	# create subplots
+	fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(12,6), 
+				 sharex=True, sharey=True)
+	axes = [ax for l in axes for ax in l]
+	fig.subplots_adjust(hspace=0.4)
+
+	# fetches the data from db 
+	data_dict_list = []
+	for i in range(len(years_list)):
+	    years = years_list[i]
+	    if years is None:
+		years_txt = ""
+	    else:
+		years_txt = "_years_" + "_".join([str(x) for x in years])
+	    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23" + years_txt
+	    data_dict = fetch_data(input_table, lat_range=lat_range,
+			nvel_min=nvel_min, season=season,
+			config_filename="../mysql_dbconfig_files/config.ini",
+			section="midlat", db_name=None, ftype=ftype,
+			coords=coords, sqrt_weighting=sqrt_weighting)
+	    data_dict_list.append(data_dict)
+
+	#color_list = ['darkblue', 'b', 'dodgerblue', 'c', 'g', 'orange', 'r']
+	#color_list = ['k', 'dodgerblue', 'g', 'r']
+	color_list = ['k', 'g', 'r']
+	#markers = ['o', '+', '*', '.']
+	for i, latc in enumerate(glatc_list):
+	    ax = axes[i]
+	    # plot the flow vector components for each latitude
+	    if veldir == "all" :
+		title = "Velocity Magnitude, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
+	    else:
+		title = veldir[0].upper()+veldir[1:] + " Vel, " +\
+			season[0].upper()+season[1:] + ", MLAT=" + str(latc) +\
+			r", Kp $\leq$ 2+"
+	    for j in range(len(years_list)):
+		vel_vs_lt(ax, data_dict_list[j], veldir=veldir,
+			  center_at_zero_mlt=center_at_zero_mlt,
+			  glatc_list=[latc], title=title, add_err_bar=add_err_bar,
+			  color_list=[color_list[j]], marker_size=0.8)
+
+	    # change the font
+	    for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
+			 ax.get_xticklabels() + ax.get_yticklabels()):
+		item.set_fontsize(8)
+	    ax.legend().set_visible(False)
+
+	# remove labels
+	for ax in axes:
+	    ax.set_xlabel("")
+	    ax.set_ylabel("")
+
+	# add label to last row
+	for i in range(6,9):
+	    axes[i].set_xlabel("MLT")
+	    #axes[i].set_xlabel("Solar Local Time")
+	    axes[i].xaxis.set_major_locator(MultipleLocator(base=3))
+
+	# add legend
+	#axes[2].legend(bbox_to_anchor=(1.05, 1.00), fontsize=6)
+	lg = axes[2].legend()
+	txts = lg.get_texts()
+	for i in range(len(years_list)):
+	    txts[i].set_text(legend_txt[i])
+	    txts[i].set_fontsize(9)
+	lg.set_bbox_to_anchor((1.02, 0.93))
+
+	# set axis label
+	if center_at_zero_mlt:
+	    xlabels = [item.get_text() for item in axes[-1].get_xticklabels()]
+	    xlabels = [str(x) for x in range(12, 24, 3) + range(0, 15, 3)]
+	    plt.xticks(range(-12, 15, 3), xlabels)
+
+	# save the fig
+	fig.savefig(fig_dir + fig_name + ".png", dpi=300)
+	#plt.show()
+
+    return
+
+def by_pairs_of_radars():
+
+    # input parameters
+    nvel_min=100
+    del_lat=1
+    #lat_range=[52, 58]
+    lat_range=[52, 61]
+    glatc_list = np.arange(lat_range[0]+0.5, lat_range[1]+0.5, del_lat)
+    if len(glatc_list) == 0:
+        glatc_list = np.array([lat_range[0]]+0.5)
+    
+    #add_err_bar = True
+    add_err_bar = False
+    ftype = "fitacf"
+    coords = "mlt"
+
+    #veldir="all"
+    veldir="zonal"
+    #veldir="meridional"
+    center_at_zero_mlt=True
+    #center_at_zero_mlt=False
+    sqrt_weighting = True
+
+    seasons = ["winter", "equinox", "summer"]
+    rads_txt_list = ["bks_wal", "fhe_fhw", "cve_cvw", "ade_adw", "six_rads"]
+    #rads_txt_list = ["bks_wal", "fhe_fhw", "cve_cvw", "six_rads"]
+    years_txt = ""
+
+    for season in seasons:
+
+	fig_dir = "./plots/velcomp_vs_time/kp_l_3/data_in_mlt/"
+	if center_at_zero_mlt:
+	    fig_name = "rad_pairs_v2_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
+		       "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
+	else:
+	    fig_name = "rad_pairs_v2_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
+		       "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
+
+	# create subplots
+	fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(12,6), 
+				 sharex=True, sharey=True)
+	axes = [ax for l in axes for ax in l]
+	fig.subplots_adjust(hspace=0.4)
+
+	# fetches the data from db 
+	data_dict_list = []
+	for i in range(len(rads_txt_list)):
+	    input_table = "master_cosfit_" + rads_txt_list[i] + "_kp_00_to_23" + years_txt
+	    data_dict = fetch_data(input_table, lat_range=lat_range,
+			nvel_min=nvel_min, season=season,
+			config_filename="../mysql_dbconfig_files/config.ini",
+			section="midlat", db_name=None, ftype=ftype,
+			coords=coords, sqrt_weighting=sqrt_weighting)
+	    data_dict_list.append(data_dict)
+
+	#color_list = ['darkblue', 'b', 'dodgerblue', 'c', 'g', 'orange', 'r']
+	#color_list = ['k', 'dodgerblue', 'g', 'r']
+	color_list = ['k', 'dodgerblue', 'g', 'orange', 'r']
+	#markers = ['o', '+', '*', '.']
+	for i, latc in enumerate(glatc_list):
+	    ax = axes[i]
+	    # plot the flow vector components for each latitude
+	    if veldir == "all" :
+		title = "Velocity Magnitude, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
+	    else:
+		title = veldir[0].upper()+veldir[1:] + " Vel, " +\
+			season[0].upper()+season[1:] + ", MLAT=" + str(latc) +\
+			r", Kp $\leq$ 2+"
+	    for j in range(len(rads_txt_list)):
+		vel_vs_lt(ax, data_dict_list[j], veldir=veldir,
+			  center_at_zero_mlt=center_at_zero_mlt,
+			  glatc_list=[latc], title=title, add_err_bar=add_err_bar,
+			  color_list=[color_list[j]], marker_size=0.8)
+
+	    # change the font
+	    for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
+			 ax.get_xticklabels() + ax.get_yticklabels()):
+		item.set_fontsize(8)
+	    ax.legend().set_visible(False)
+
+	# remove labels
+	for ax in axes:
+	    ax.set_xlabel("")
+	    ax.set_ylabel("")
+
+	# add label to last row
+	for i in range(6,9):
+	    axes[i].set_xlabel("MLT")
+	    #axes[i].set_xlabel("Solar Local Time")
+	    axes[i].xaxis.set_major_locator(MultipleLocator(base=3))
+
+	# add legend
+	#axes[2].legend(bbox_to_anchor=(1.05, 1.00), fontsize=6)
+	lg = axes[2].legend()
+	legend_txt = rads_txt_list
+	txts = lg.get_texts()
+	for i in range(len(rads_txt_list)):
+	    txts[i].set_text(legend_txt[i])
+	    txts[i].set_fontsize(9)
+	lg.set_bbox_to_anchor((1.02, 0.93))
+
+	# set axis label
+	if center_at_zero_mlt:
+	    xlabels = [item.get_text() for item in axes[-1].get_xticklabels()]
+	    xlabels = [str(x) for x in range(12, 24, 3) + range(0, 15, 3)]
+	    plt.xticks(range(-12, 15, 3), xlabels)
+
+	# save the fig
+	fig.savefig(fig_dir + fig_name + ".png", dpi=300)
+	#plt.show()
+
+    return
+
+
+def by_imf_clock_angle():
+        
+    # imf clock angle bins
+    #bins = [[330, 30], [150, 210]]
+    #bins_txt = ["Bz+", "Bz-"]
+    #fig_txt =  "_by_imf_Bz_clock_angle"
+    bins = [[60, 120], [240, 300]] 
+    bins_txt = ["By+", "By-"]
+    fig_txt =  "_convection_by_imf_By_clock_angle_lat"
+
+
+    for season in seasons:
 
         # create subplots
-        fig, axes = plt.subplots(nrows=len(seasons), ncols=1, figsize=None, sharex=True)
+        fig, axes = plt.subplots(nrows=len(bins), ncols=1, figsize=None, sharex=True)
         fig.subplots_adjust(hspace=0.3)
-
-        if len(seasons) == 1:
+        if len(bins) == 1:
             axes = [axes]
 
-        for i, season in enumerate(seasons):
-            # fetches the data from db 
-            data_dict = fetch_data(input_table, lat_range=lat_range,
-                        nvel_min=nvel_min, season=season,
-                        config_filename="../mysql_dbconfig_files/config.ini",
-                        section="midlat", db_name=None, ftype=ftype,
-                        coords=coords, sqrt_weighting=sqrt_weighting)
+        #fig_dir = "./plots/velcomp/kp_l_3/data_in_geo/"
+        fig_dir = "./plots/velcomp/kp_l_3/data_in_mlt/binned_by_imf_clock_angle/"
+        if center_at_zero_mlt:
+            fig_name = season + "_" + veldir+ "_vel_vs_ltm_c0" +  fig_txt +\
+                       "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
+        else:
+            fig_name = season + "_" + veldir+ "_vel_vs_ltm" + fig_txt +\
+                       "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
+
+        # fetches the data from db 
+        #baseLocation="../data/sqlite3/" + season + '/kp_l_3/data_in_mlt/'
+        baseLocation="../data/sqlite3/" + season + '/kp_l_3/data_in_mlt/binned_by_imf_clock_angle/'
+        
+        # loop through the bins
+        for i, bn in enumerate(bins):
+            dbName = "imf_clock_angle_" + str(bn[0]) + "_to_" + str(bn[1]) +\
+                        "_" + ftype + ".sqlite"
+
+            data_dict = fetch_data(ftype=ftype, nvel_min=nvel_min, 
+                            lat_range=lat_range, baseLocation=baseLocation,
+                            dbName=dbName)
 
             # plot the flow vector components
             if veldir == "all" :
                 title = "Velocity Magnitude, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
             else:
-                title = veldir[0].upper()+veldir[1:] + " Velocities, " +\
-                        season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
+                title = veldir[0].upper()+veldir[1:] + " Velocities, " + season[0].upper()+season[1:] + \
+                    r", Kp $\leq$ 2+" + ", IMF " + bins_txt[i]
             vel_vs_lt(axes[i], data_dict, veldir=veldir, center_at_zero_mlt=center_at_zero_mlt,
                     glatc_list=glatc_list, title=title, add_err_bar=add_err_bar)
 
         # set axis label
         axes[-1].set_xlabel("MLT")
-        #axes[-1].set_xlabel("Solar Local Time")
         axes[-1].xaxis.set_major_locator(MultipleLocator(base=3))
         if center_at_zero_mlt:
             xlabels = [item.get_text() for item in axes[-1].get_xticklabels()]
@@ -190,136 +491,11 @@ def main(by_season=True, by_f107=False, by_imf_clock_angle=False):
         fig.savefig(fig_dir + fig_name + ".png", dpi=300)
         #plt.show()
 
-    if by_f107:
-        #f107_bins = [[0, 100], [100, 175], [175, 500]]
-        #f107_bins = [[0, 100], [100, 150], [150, 500]]
-        #f107_bins = [[0, 100], [105, 130], [130, 500]]
-        #f107_bins = [[0, 105], [105, 125], [125, 500]]
-        #f107_bins = [[0, 95], [105, 125], [130, 500]]
-        f107_bins = [[0, 95], [105, 130], [140, 500]]
-        #f107_bins = [[0, 110], [110, 500]]
-        #f107_bins = [[0, 120], [120, 500]]
-
-        for season in seasons:
-
-            # create subplots
-            fig, axes = plt.subplots(nrows=len(f107_bins), ncols=1, figsize=None, sharex=True)
-            fig.subplots_adjust(hspace=0.3)
-            if len(f107_bins) == 1:
-                axes = [axes]
-
-            #fig_dir = "./plots/velcomp/kp_l_3/data_in_geo/"
-            fig_dir = "./plots/velcomp/kp_l_3/data_in_mlt/binned_by_f107/"
-            if center_at_zero_mlt:
-                fig_name = season + "_" + veldir+ "_vel_vs_ltm_c0" +\
-                           "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
-            else:
-                fig_name = season + "_" + veldir+ "_vel_vs_ltm" +\
-                           "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
-
-            # fetches the data from db 
-            #baseLocation="../data/sqlite3/" + season + '/kp_l_3/data_in_mlt/'
-            baseLocation="../data/sqlite3/" + season + '/kp_l_3/data_in_mlt/binned_by_f107/'
-            
-            # loop through the f107 bins
-            for i, f107_bin in enumerate(f107_bins):
-                dbName = "f107_" + str(f107_bin[0]) + "_to_" + str(f107_bin[1]) +\
-                            "_" + ftype + ".sqlite"
-
-                data_dict = fetch_data(ftype=ftype, nvel_min=nvel_min, 
-                                lat_range=lat_range, baseLocation=baseLocation,
-                                dbName=dbName)
-
-                # plot the flow vector components
-                if veldir == "all" :
-                    title = "Velocity Magnitude, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
-                else:
-                    title = veldir[0].upper()+veldir[1:] + " Velocities, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+" + ", F10.7=" + str(f107_bin)
-                vel_vs_lt(axes[i], data_dict, veldir=veldir, center_at_zero_mlt=center_at_zero_mlt,
-                        glatc_list=glatc_list, title=title, add_err_bar=add_err_bar)
-
-            # set axis label
-            axes[-1].set_xlabel("MLT")
-            axes[-1].xaxis.set_major_locator(MultipleLocator(base=3))
-            if center_at_zero_mlt:
-                xlabels = [item.get_text() for item in axes[-1].get_xticklabels()]
-                xlabels = [str(x) for x in range(12, 24, 3) + range(0, 15, 3)]
-                plt.xticks(range(-12, 15, 3), xlabels)
-
-            # save the fig
-            fig.savefig(fig_dir + fig_name + ".png", dpi=300)
-            #plt.show()
-
-    if by_imf_clock_angle:
-        
-        # imf clock angle bins
-        #bins = [[330, 30], [150, 210]]
-        #bins_txt = ["Bz+", "Bz-"]
-        #fig_txt =  "_by_imf_Bz_clock_angle"
-        bins = [[60, 120], [240, 300]] 
-        bins_txt = ["By+", "By-"]
-        fig_txt =  "_convection_by_imf_By_clock_angle_lat"
-
-
-        for season in seasons:
-
-            # create subplots
-            fig, axes = plt.subplots(nrows=len(bins), ncols=1, figsize=None, sharex=True)
-            fig.subplots_adjust(hspace=0.3)
-            if len(bins) == 1:
-                axes = [axes]
-
-            #fig_dir = "./plots/velcomp/kp_l_3/data_in_geo/"
-            fig_dir = "./plots/velcomp/kp_l_3/data_in_mlt/binned_by_imf_clock_angle/"
-            if center_at_zero_mlt:
-                fig_name = season + "_" + veldir+ "_vel_vs_ltm_c0" +  fig_txt +\
-                           "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
-            else:
-                fig_name = season + "_" + veldir+ "_vel_vs_ltm" + fig_txt +\
-                           "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
-
-            # fetches the data from db 
-            #baseLocation="../data/sqlite3/" + season + '/kp_l_3/data_in_mlt/'
-            baseLocation="../data/sqlite3/" + season + '/kp_l_3/data_in_mlt/binned_by_imf_clock_angle/'
-            
-            # loop through the bins
-            for i, bn in enumerate(bins):
-                dbName = "imf_clock_angle_" + str(bn[0]) + "_to_" + str(bn[1]) +\
-                            "_" + ftype + ".sqlite"
-
-                data_dict = fetch_data(ftype=ftype, nvel_min=nvel_min, 
-                                lat_range=lat_range, baseLocation=baseLocation,
-                                dbName=dbName)
-
-                # plot the flow vector components
-                if veldir == "all" :
-                    title = "Velocity Magnitude, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
-                else:
-                    title = veldir[0].upper()+veldir[1:] + " Velocities, " + season[0].upper()+season[1:] + \
-                        r", Kp $\leq$ 2+" + ", IMF " + bins_txt[i]
-                vel_vs_lt(axes[i], data_dict, veldir=veldir, center_at_zero_mlt=center_at_zero_mlt,
-                        glatc_list=glatc_list, title=title, add_err_bar=add_err_bar)
-
-            # set axis label
-            axes[-1].set_xlabel("MLT")
-            axes[-1].xaxis.set_major_locator(MultipleLocator(base=3))
-            if center_at_zero_mlt:
-                xlabels = [item.get_text() for item in axes[-1].get_xticklabels()]
-                xlabels = [str(x) for x in range(12, 24, 3) + range(0, 15, 3)]
-                plt.xticks(range(-12, 15, 3), xlabels)
-
-            # save the fig
-            fig.savefig(fig_dir + fig_name + ".png", dpi=300)
-            #plt.show()
-
 
     return
 
 if __name__ == "__main__":
-    by_season=True
-    by_f107=False
-    #by_season=False
-    #by_f107=True
-    by_imf_clock_angle=False
-    #by_imf_clock_angle=True
-    main(by_season=by_season, by_f107=by_f107, by_imf_clock_angle=by_imf_clock_angle)
+    #by_season()
+    #by_imf_clock_angle()
+    six_rads_by_year()
+    #by_pairs_of_radars()
