@@ -22,7 +22,7 @@ class gmi_imf_binning(object):
 
     def bin_imf(self, outdbName, bin_by_clock_angle=True, bvec_max=0.95,
                 before_mins=20, after_mins=10, del_tm=10,
-                bins=[[-30, 30], [150, 210]]):
+                bins=[[-30, 30], [150, 210]], add_kp=True):
         """ group the imf (clock angle, etc.) into bins for 
         a given set of quasi-static conditions
 
@@ -56,7 +56,10 @@ class gmi_imf_binning(object):
                 table_name = "b" + str((bn[0]%360)) + "_b" + str(bn[1]%360) + \
                              "_before" + str(before_mins) + "_after" +  str(after_mins) + \
                              "_bvec" + str(bvec_max).split('.')[-1]
-                colname_type = "datetime TIMESTAMP PRIMARY KEY, avg_clock_angle REAL"
+                if add_kp:
+                    colname_type = "datetime TIMESTAMP PRIMARY KEY, avg_clock_angle REAL, kp REAL"
+                else:
+                    colname_type = "datetime TIMESTAMP PRIMARY KEY, avg_clock_angle REAL"
                 #colname_type = "datetime TIMESTAMP PRIMARY KEY, Bx REAL, By REAL, Bz REAL, avg_clock_angle REAL"
                 command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})".format(tb=table_name,\
                                                                                    colname_type=colname_type)
@@ -64,7 +67,10 @@ class gmi_imf_binning(object):
 
                 # create a table to store each minute of IMF that belongs to the quiet intervals
                 table_name_2 = table_name + "_all"
-                colname_type = "datetime TIMESTAMP PRIMARY KEY, Bx REAL, By REAL, Bz REAL, clock_angle REAL"
+                if add_kp:
+                    colname_type = "datetime TIMESTAMP PRIMARY KEY, Bx REAL, By REAL, Bz REAL, clock_angle REAL, kp REAL"
+                else:
+                    colname_type = "datetime TIMESTAMP PRIMARY KEY, Bx REAL, By REAL, Bz REAL, clock_angle REAL"
                 command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})".format(tb=table_name_2,\
                                                                                    colname_type=colname_type)
                 cur.execute(command)
@@ -79,7 +85,25 @@ class gmi_imf_binning(object):
                           format(tb2="source.IMF")
                 cur.execute(command, (tm_before, tm_after))
                 rows = cur.fetchall()
-                print("processing IMF data for ", tm_target)
+
+                if add_kp:
+                    # NOTE: for a time interval (e.g. 40 minutes of IMF interval) that sits between two adjacent
+                    # 3 hour kp intervals, decision has been made such that the larger kp is selected among the two. 
+                    stm_tmp = dt.datetime(tm_before.year, tm_before.month, tm_before.day, 3*int(tm_before.hour/3))
+                    if tm_after.hour%3:
+                        etm_tmp = tm_after.replace(hour=0, minute=0) + dt.timedelta(hours=3*(1+int(tm_after.hour/3)))
+                    else:
+                        etm_tmp = tm_after.replace(hour=0, minute=0) + dt.timedelta(hours=3*int(tm_after.hour/3))
+                    command = "SELECT * FROM {tb2} WHERE (datetime >= ? AND datetime < ?)".\
+                              format(tb2="source.kp")
+                    cur.execute(command, (stm_tmp, etm_tmp))
+                    rows_kp = cur.fetchall()
+                    kps = [x[1] for x in rows_kp]
+                    if len(kps) == 0:
+                        continue
+                    kp = max(kps)
+
+                print("processing IMF data for " + str(tm_target))
                 if len(rows) < num_lim:
                     continue
                 else:
@@ -106,15 +130,25 @@ class gmi_imf_binning(object):
                         if clk_angle>=bn[0] and clk_angle<=bn[1]: 
                             clk_angle = round(clk_angle % 360, 2)
                             # populate the table that stores the quite time intervals
-                            command = "INSERT OR IGNORE INTO {tb} (datetime, avg_clock_angle) VALUES (?, ?)"\
-                            .format(tb=table_name)
-                            cur.execute(command, (tm_target, clk_angle))
+                            if add_kp:
+                                command = "INSERT OR IGNORE INTO {tb} (datetime, avg_clock_angle, kp) VALUES (?, ?, ?)"\
+                                .format(tb=table_name)
+                                cur.execute(command, (tm_target, clk_angle, kp))
+                            else:
+                                command = "INSERT OR IGNORE INTO {tb} (datetime, avg_clock_angle) VALUES (?, ?)"\
+                                .format(tb=table_name)
+                                cur.execute(command, (tm_target, clk_angle))
 
                             # populate the table that stores quite time IMF for each minute
                             for rw in rows:
-                                command = "INSERT OR IGNORE INTO {tb} (datetime, Bx, By, Bz, clock_angle) VALUES (?, ?, ?, ?, ?)"\
-                                .format(tb=table_name_2)
-                                cur.execute(command, (rw[0], rw[1], rw[2], rw[3], rw[4]))
+                                if add_kp:
+                                    command = "INSERT OR IGNORE INTO {tb} (datetime, Bx, By, Bz, clock_angle, kp) VALUES (?, ?, ?, ?, ?, ?)"\
+                                    .format(tb=table_name_2)
+                                    cur.execute(command, (rw[0], rw[1], rw[2], rw[3], rw[4], kp))
+                                else:
+                                    command = "INSERT OR IGNORE INTO {tb} (datetime, Bx, By, Bz, clock_angle) VALUES (?, ?, ?, ?, ?)"\
+                                    .format(tb=table_name_2)
+                                    cur.execute(command, (rw[0], rw[1], rw[2], rw[3], rw[4]))
                         else:
                             continue
         conn.commit()
