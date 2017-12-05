@@ -23,7 +23,9 @@ class gmi_imf_binning(object):
     def bin_imf(self, outdbName, bin_by_clock_angle=True, bvec_max=0.95,
                 before_mins=20, after_mins=10, del_tm=10,
                 bins=[[-30, 30], [150, 210]]):
-        """
+        """ group the imf (clock angle, etc.) into bins for 
+        a given set of quasi-static conditions
+
         Parameters
         ----------
         bvec_max : float
@@ -51,7 +53,9 @@ class gmi_imf_binning(object):
             # create tables: one table for each bin
             for bn in bins:
                 # create a table to store each del_tm quiet intervals of IMF
-                table_name = "b" + str((bn[0]%360)) + "_b" + str(bn[1]%360) 
+                table_name = "b" + str((bn[0]%360)) + "_b" + str(bn[1]%360) + \
+                             "_before" + str(before_mins) + "_after" +  str(after_mins) + \
+                             "_bvec" + str(bvec_max).split('.')[-1]
                 colname_type = "datetime TIMESTAMP PRIMARY KEY, avg_clock_angle REAL"
                 #colname_type = "datetime TIMESTAMP PRIMARY KEY, Bx REAL, By REAL, Bz REAL, avg_clock_angle REAL"
                 command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})".format(tb=table_name,\
@@ -75,6 +79,7 @@ class gmi_imf_binning(object):
                           format(tb2="source.IMF")
                 cur.execute(command, (tm_before, tm_after))
                 rows = cur.fetchall()
+                print("processing IMF data for ", tm_target)
                 if len(rows) < num_lim:
                     continue
                 else:
@@ -93,7 +98,10 @@ class gmi_imf_binning(object):
                             clk_angle = round(clk_angle, 2)
                         else:
                             clk_angle = round(clk_angle % 360, 2)
-                        table_name = "b" + str((bn[0]%360)) + "_b" + str(bn[1]%360) 
+                        #table_name = "b" + str((bn[0]%360)) + "_b" + str(bn[1]%360) 
+                        table_name = "b" + str((bn[0]%360)) + "_b" + str(bn[1]%360) + \
+                                     "_before" + str(before_mins) + "_after" +  str(after_mins) + \
+                                     "_bvec" + str(bvec_max).split('.')[-1]
                         table_name_2 = table_name + "_all"
                         if clk_angle>=bn[0] and clk_angle<=bn[1]: 
                             clk_angle = round(clk_angle % 360, 2)
@@ -101,7 +109,6 @@ class gmi_imf_binning(object):
                             command = "INSERT OR IGNORE INTO {tb} (datetime, avg_clock_angle) VALUES (?, ?)"\
                             .format(tb=table_name)
                             cur.execute(command, (tm_target, clk_angle))
-                            print(command)
 
                             # populate the table that stores quite time IMF for each minute
                             for rw in rows:
@@ -273,7 +280,7 @@ def main():
     import datetime as dt
     import numpy as np
 
-    stm = dt.datetime(2010, 12, 29)
+    stm = dt.datetime(2010, 12, 29)     # NOTE: minute of stm and etm must be 0.
     etm = dt.datetime(2017, 1, 3)
     indbName = None
     baseLocation = "../../data/sqlite3/"
@@ -303,7 +310,7 @@ def main():
 
     sector_width = 60 
     sector_center_dist = 90
-    bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360-sector_center_dist, sector_center_dist)]
+    bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
 
     print "binning IMF"
     gmi.bin_imf("binned_imf.sqlite", bin_by_clock_angle=True,
