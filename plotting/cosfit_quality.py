@@ -106,14 +106,28 @@ def by_season():
     #nvel_min=50
     lat_range=[52, 59]
     lat_min = 50
+
     #lat_range=[39, 60]
     #lat_min = 38
+
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
+
+    rads_txt = "six_rads"
+    #rads_txt = "cve_cvw"
+    #rads_txt = "fhe_fhw"
+    #rads_txt = "bks_wal"
+    #rads_txt = "ade_adw"
+    #rads_txt = "hok_hkw"
+
+    years = [2011, 2012]
+    years_txt = "_years_" + "_".join([str(x) for x in years])
+    #years_txt = ""
+
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
-    input_table = "master_cosfit_six_rads_kp_00_to_23"
+    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23" + years_txt
 
     seasons = ["winter", "summer", "equinox"]
 
@@ -130,8 +144,8 @@ def by_season():
     else:
         bounds = np.arange(0, 0.9, 0.1).tolist()
 
-    fig_dir = "./plots/convection/kp_l_3/data_in_mlt/"
-    fig_name = "six_rads_seasonal_cosfit_quality_" + err_type + "_" + str(lat_range[0]) +"_to_lat" + str(lat_range[1])
+    fig_dir = "./plots/cosfit_quality/kp_l_3/data_in_mlt/"
+    fig_name = rads_txt + years_txt + "_seasonal_cosfit_quality_" + err_type + "_" + str(lat_range[0]) +"_to_lat" + str(lat_range[1])
 
     # create subplots
     fig, axes = plt.subplots(nrows=len(seasons), ncols=1, figsize=(6,8))

@@ -660,7 +660,7 @@ def master_summary_by_year_season(input_table, output_table, coords="mlt", db_na
 
 def master_summary_by_month(input_table, output_table, coords="mlt", db_name=None,
                             config_filename="../mysql_dbconfig_files/config.ini",
-                            section="midlat"):
+                            section="midlat", pseudo_month=False):
     
     """ stores the summay statistics of the data in master table into 
     a different table in the same database.
@@ -744,16 +744,29 @@ def master_summary_by_month(input_table, output_table, coords="mlt", db_name=Non
     except Exception, e:
         logging.error(e, exc_info=True)
 
-    if coords == "mlt":
-	command = "SELECT AVG(vel), STD(vel), COUNT(vel), " +\
-                  "mag_glatc, mag_gltc, mag_gazmc, MONTH(datetime) " +\
-		  "FROM {tb1} "+\
-                  "GROUP BY mag_glatc, mag_gltc, mag_gazmc, MONTH(datetime)"
-    elif coords == "geo":
-	command = "SELECT AVG(vel), STD(vel), COUNT(vel), " +\
-                  "geo_glatc, geo_gltc, geo_gazmc, MONTH(datetime) " +\
-		  "FROM {tb1} "+\
-                  "GROUP BY geo_glatc, geo_gltc, geo_gazmc, MONTH(datetime)"
+    if pseudo_month:
+        if coords == "mlt":
+            command = "SELECT AVG(vel), STD(vel), COUNT(vel), " +\
+                      "mag_glatc, mag_gltc, mag_gazmc, MONTH(ADDDATE(datetime, INTERVAL -6 day)) " +\
+                      "FROM {tb1} "+\
+                      "GROUP BY mag_glatc, mag_gltc, mag_gazmc, MONTH(ADDDATE(datetime, INTERVAL -6 day))"
+        elif coords == "geo":
+            command = "SELECT AVG(vel), STD(vel), COUNT(vel), " +\
+                      "geo_glatc, geo_gltc, geo_gazmc, MONTH(ADDDATE(datetime, INTERVAL -6 day)) " +\
+                      "FROM {tb1} "+\
+                      "GROUP BY geo_glatc, geo_gltc, geo_gazmc, MONTH(ADDDATE(datetime, INTERVAL -6 day))"
+    else:
+        if coords == "mlt":
+            command = "SELECT AVG(vel), STD(vel), COUNT(vel), " +\
+                      "mag_glatc, mag_gltc, mag_gazmc, MONTH(datetime) " +\
+                      "FROM {tb1} "+\
+                      "GROUP BY mag_glatc, mag_gltc, mag_gazmc, MONTH(datetime)"
+        elif coords == "geo":
+            command = "SELECT AVG(vel), STD(vel), COUNT(vel), " +\
+                      "geo_glatc, geo_gltc, geo_gazmc, MONTH(datetime) " +\
+                      "FROM {tb1} "+\
+                      "GROUP BY geo_glatc, geo_gltc, geo_gazmc, MONTH(datetime)"
+
     command = command.format(tb1=input_table)
     print command
 
@@ -782,14 +795,24 @@ def master_summary_by_month(input_table, output_table, coords="mlt", db_name=Non
             vel_mean, vel_std, vel_count, lat, lt, azm, month =rw
 
             # find median
-            if coords == "mlt":
-                command_tmp = "SELECT vel FROM {tb1} " +\
-                              "WHERE mag_glatc={lat} and mag_gltc={lt} and "+\
-                              "mag_gazmc={azm} and MONTH(datetime)={month}"
-            elif coords == "geo":
-                command_tmp = "SELECT vel FROM {tb1} " +\
-                              "WHERE geo_glatc={lat} and geo_gltc={lt} and "+\
-                              "geo_gazmc={azm} and MONTH(datetime)={month}"
+            if pseudo_month:
+                if coords == "mlt":
+                    command_tmp = "SELECT vel FROM {tb1} " +\
+                                  "WHERE mag_glatc={lat} and mag_gltc={lt} and "+\
+                                  "mag_gazmc={azm} and MONTH(ADDDATE(datetime, INTERVAL -6 day))={month}"
+                elif coords == "geo":
+                    command_tmp = "SELECT vel FROM {tb1} " +\
+                                  "WHERE geo_glatc={lat} and geo_gltc={lt} and "+\
+                                  "geo_gazmc={azm} and MONTH(ADDDATE(datetime, INTERVAL -6 day))={month}"
+            else:
+                if coords == "mlt":
+                    command_tmp = "SELECT vel FROM {tb1} " +\
+                                  "WHERE mag_glatc={lat} and mag_gltc={lt} and "+\
+                                  "mag_gazmc={azm} and MONTH(datetime)={month}"
+                elif coords == "geo":
+                    command_tmp = "SELECT vel FROM {tb1} " +\
+                                  "WHERE geo_glatc={lat} and geo_gltc={lt} and "+\
+                                  "geo_gazmc={azm} and MONTH(datetime)={month}"
             command_tmp = command_tmp.format(tb1=input_table, lat=lat, lt=lt,
                                              azm=azm, month=month)
             try:
@@ -833,7 +856,7 @@ def main(master_table=True, master_summary_table=True):
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/master_table_kp_00_to_23_ade_adw_2015_2016.log",
+    logging.basicConfig(filename="./log_files/master_table_kp_00_to_23_six_rads_by_pseudo_month.log",
                         level=logging.INFO)
 
     # input parameters
@@ -848,21 +871,19 @@ def main(master_table=True, master_summary_table=True):
     #output_table_2 = "master_summary_ade_adw_kp_00_to_23"
 
 
-
-
     #rads_txt = "bks_wal"
-    #rads_txt = "six_rads"
-    rads_txt = "ade_adw"
+    rads_txt = "six_rads"
+    #rads_txt = "ade_adw"
 
-    selected_years=[2015, 2016]
-    years_txt = "_years_" + "_".join([str(x) for x in selected_years])
-    #years_txt = ""
+    #selected_years=[2015, 2016]
+    #years_txt = "_years_" + "_".join([str(x) for x in selected_years])
+    years_txt = ""
 
     input_table_1 = rads_txt + "_kp_00_to_23_fitacf"
     output_table_1 = "master_" + rads_txt + "_kp_00_to_23"
     input_table_2 = "master_" + rads_txt + "_kp_00_to_23"
-    output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
-    #output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23_by_month"
+    #output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
+    output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23_by_pseudo_month"
 
     ftype = "fitacf"
     coords = "mlt"
@@ -884,10 +905,10 @@ def main(master_table=True, master_summary_table=True):
         # build a summary table
         print "building a master_summary table"
 
-#        master_summary_by_month(input_table_2, output_table_2, coords=coords,
-#                                db_name=output_dbname,
-#                                config_filename="../mysql_dbconfig_files/config.ini",
-#                                section="midlat")
+        master_summary_by_month(input_table_2, output_table_2, coords=coords,
+                                db_name=output_dbname,
+                                config_filename="../mysql_dbconfig_files/config.ini",
+                                section="midlat", pseudo_month=False)
 
 #        master_summary_by_season(input_table_2, output_table_2, coords=coords,
 #                               db_name=output_dbname,
@@ -900,11 +921,11 @@ def main(master_table=True, master_summary_table=True):
 #                                       config_filename="../mysql_dbconfig_files/config.ini",
 #                                       section="midlat")
 
-        master_summary_by_year_season(input_table_2, output_table_2, coords=coords,
-                                       db_name=output_dbname,
-                                       selected_years=selected_years,
-                                       config_filename="../mysql_dbconfig_files/config.ini",
-                                       section="midlat")
+#        master_summary_by_year_season(input_table_2, output_table_2, coords=coords,
+#                                       db_name=output_dbname,
+#                                       selected_years=selected_years,
+#                                       config_filename="../mysql_dbconfig_files/config.ini",
+#                                       section="midlat")
 
         print "A master_summary has been build"
 

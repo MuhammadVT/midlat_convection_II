@@ -285,8 +285,10 @@ def main():
     #years = [2015, 2016]
     #years_txt = "_years_" + "_".join([str(x) for x in years])
     years_txt = ""
-
-    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23_by_month"
+    
+    #month_txt = "by_month"
+    month_txt = "by_pseudo_month"
+    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23_" + month_txt
 
     # cmap and bounds for color bar
     color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
@@ -297,7 +299,7 @@ def main():
     #months = [11, 12, 1, 2, 3, 4, 9, 10, 5, 6, 7, 8]
 
     fig_dir = "./plots/convection_by_month/kp_l_3/data_in_mlt/"
-    fig_name = rads_txt + "_monthly_v1_convection_lat" + str(lat_range[0]) +\
+    fig_name = rads_txt + "_pseudo_monthly_v1_convection_lat" + str(lat_range[0]) +\
                "_to_lat" + str(lat_range[1]) + "_nvel_min_" + str(nvel_min)
    
     # create subplots

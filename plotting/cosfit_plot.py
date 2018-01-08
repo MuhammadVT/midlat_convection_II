@@ -4,7 +4,7 @@ matplotlib.use('Agg')
 def plot_cosfit(ax, latc, ltc, summary_table, cosfit_table, season="winter",
                 config_filename="../mysql_dbconfig_files/config.ini",
                 section="midlat", db_name=None, ftype="fitacf",
-                coords="mlt", sqrt_weighting=True):
+                coords="mlt", sqrt_weighting=True, add_errbar=False):
 
     """ plots a the cosfit results for a give latc-ltc grid for a giving season"""
 
@@ -100,8 +100,9 @@ def plot_cosfit(ax, latc, ltc, summary_table, cosfit_table, season="winter",
                edgecolors="face", label="LOS Vel.")
 
     # add error bars to LOS vels
-    ax.errorbar(azm, median_vel, yerr=vel_std, capsize=1, mfc='k',
-            fmt='o', ms=2, elinewidth=.5, mec='k', ecolor="k")
+    if add_errbar:
+        ax.errorbar(azm, median_vel, yerr=vel_std, capsize=1, mfc='k',
+                fmt='o', ms=2, elinewidth=.5, mec='k', ecolor="k")
 
     # plot the cosfit curve
     #x_fit = np.arange(0, 360, 1)
@@ -158,17 +159,22 @@ if __name__ == "__main__":
     #rads_txt = "fhe_fhw"
     #rads_txt = "bks_wal"
     #rads_txt = "hok_hkw"
+
+    years = [2011, 2012]
+    years_txt = "_years_" + "_".join([str(x) for x in years])
+    #years_txt = ""
+
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
-    summary_table = "master_summary_" + rads_txt + "_kp_00_to_23"
-    cosfit_table = "master_cosfit_" + rads_txt + "_kp_00_to_23"
+    summary_table = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
+    cosfit_table = "master_cosfit_" + rads_txt + "_kp_00_to_23" + years_txt
 
     season = "winter"
     #season = "summer"
     #season = "equinox"
 
-    fixed_lat = False
-    fixed_lt = True
+    fixed_lat = True
+    fixed_lt = False
     # Plot points at a given latitude
     if fixed_lat:
         # points of interest
@@ -187,7 +193,7 @@ if __name__ == "__main__":
             fig_dir = "./plots/cosfit_plot/kp_l_3/data_in_mlt/"
             #fig_name = rads_txt + "_" + season + "_cosfit_mlat"+str(latc) + \
             #           "_mlt" + str(round(ltc/15., 2))
-            fig_name = rads_txt + "_" + season + "_cosfit_mlat"+str(latc)
+            fig_name = rads_txt + years_txt + "_" + season + "_cosfit_mlat"+str(latc)
 
 
             for i, ltc in enumerate(ltc_list):
@@ -228,7 +234,7 @@ if __name__ == "__main__":
             axes = [x for l in axes for x in l]
 
             fig_dir = "./plots/cosfit_plot/kp_l_3/data_in_mlt/"
-            fig_name = rads_txt + "_" + season + "_mlt" + str(round(ltc/15., 0))
+            fig_name = rads_txt + years_txt + "_" + season + "_mlt" + str(round(ltc/15., 0))
 
 
             for i, latc in enumerate(latc_list):

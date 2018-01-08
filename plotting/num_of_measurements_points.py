@@ -55,13 +55,15 @@ def num_plot(ax, data_dict, season, cmap, bounds,
     # add labels
     ax.set_title(title, fontsize="small")
     # add latitudinal labels
-    fnts = 'x-small'
+    fnts = 'small'
     ax.annotate("80", xy=(0, -10), ha="left", va="bottom", fontsize=fnts)
     ax.annotate("60", xy=(0, -30), ha="left", va="bottom", fontsize=fnts)
+
     # add mlt labels
-    ax.annotate("0", xy=(0, -rmax), ha="center", va="top", fontsize=fnts)
-    ax.annotate("6", xy=(rmax, 0), ha="left", va="center", fontsize=fnts)
-    ax.annotate("18", xy=(-rmax, 0), ha="right", va="center", fontsize=fnts)
+    ax.annotate("0", xy=(0, -rmax), xytext=(0, -rmax-1), ha="center", va="top", fontsize=fnts)
+    ax.annotate("6", xy=(rmax, 0), xytext=(rmax+1, 0), ha="left", va="center", fontsize=fnts)
+    ax.annotate("18", xy=(-rmax, 0), xytext=(-rmax-1, 0), ha="right", va="center", fontsize=fnts)
+
 
     return  ccoll
 
@@ -98,9 +100,9 @@ def by_season():
 
 
     # input parameters
-    #nvel_min=300
-    nvel_min=100
-    lat_range=[53, 60]
+    #nvel_min=100
+    nvel_min=300
+    lat_range=[52, 59]
     lat_min = 50
 
 #    nvel_min=100
@@ -110,16 +112,24 @@ def by_season():
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
-    #rads_txt = "six_rads"
-    rads_txt = "ade_adw"
+    rads_txt = "six_rads"
+    #rads_txt = "cve_cvw"
+    #rads_txt = "fhe_fhw"
+    #rads_txt = "bks_wal"
+    #rads_txt = "ade_adw"
     #rads_txt = "hok_hkw"
+
+    years = [2011, 2012]
+    years_txt = "_years_" + "_".join([str(x) for x in years])
+    #years_txt = ""
+
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
-    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23"
+    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23" + years_txt
 
     seasons = ["winter", "summer", "equinox"]
 
     fig_dir = "./plots/num_measurement_points/kp_l_3/data_in_mlt/"
-    fig_name = rads_txt + "_seasonal_num_measurement_points"
+    fig_name = rads_txt + years_txt + "_seasonal_num_measurement_points"
    
     # create subplots
     fig, axes = plt.subplots(nrows=len(seasons), ncols=1, figsize=(6,8))
@@ -128,8 +138,8 @@ def by_season():
     # build a custom color map and bounds
     color_list = ['purple', 'b', 'dodgerblue', 'c', 'g', 'y', 'orange', 'r']
     cmap = mpl.colors.ListedColormap(color_list)
-    bounds = range(0, 2400, 300)
-    #bounds = range(0, 8000, 1000)
+    #bounds = range(0, 2400, 300)
+    bounds = range(0, 8000, 1000)
     #bounds = range(100, 800, 100)
     bounds[0] = nvel_min
     bounds.append(20000)

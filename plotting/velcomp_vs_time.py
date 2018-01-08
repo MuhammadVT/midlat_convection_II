@@ -70,16 +70,23 @@ def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
     # add text
     ax.set_title(title, fontsize="small")
 
+    # Set xtick directions
+    ax.tick_params(direction="in")
+
+    # Set ytick format
+    ax.yaxis.set_major_locator(MultipleLocator(20))
+
     # add zero-line
     if veldir != "all":
         ax.axhline(y=0, color='k', linewidth=0.7)
 
     # set axis limits
     if center_at_zero_mlt:
-        ax.set_xlim([-12, 12])
+        #ax.set_xlim([-12, 12])
+        ax.set_xlim([-6, 6])
         # add legend
-        #ax.legend(bbox_to_anchor=(0.98, 0.90), fontsize=7)
-        ax.legend(loc="center right", fontsize=6)
+        ax.legend(bbox_to_anchor=(1.01, 0.91), fontsize=6)
+        #ax.legend(loc="center right", fontsize=6)
     else:
         ax.set_xlim([0, 24])
         # add legend
@@ -89,7 +96,8 @@ def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
     if veldir == "all":
         ax.set_ylim([0, 60])
     else:
-        ax.set_ylim([-65, 25])
+        #ax.set_ylim([-65, 25])
+        ax.set_ylim([-60, 50])
     
     # axis labels
     ax.set_ylabel("Vel [m/s]")
@@ -99,16 +107,16 @@ def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
 def by_season():
 
     # input parameters
-#    nvel_min=300
-#    #del_lat=3
+    nvel_min=300
+    #del_lat=3
+    del_lat=1
+    lat_range=[58, 65]
+    #lat_range=[52, 59]
+
+#    nvel_min=100
 #    del_lat=1
 #    #lat_range=[58, 65]
-#    lat_range=[52, 59]
-
-    nvel_min=100
-    del_lat=1
-    #lat_range=[58, 65]
-    lat_range=[53, 60]
+#    lat_range=[53, 60]
 
 
 #    nvel_min=100
@@ -139,20 +147,25 @@ def by_season():
     #seasons = ["winter"]
 
     sqrt_weighting = True
-    #rads_txt = "six_rads"
-    rads_txt = "ade_adw"
+    rads_txt = "six_rads"
+    #rads_txt = "ade_adw"
     #rads_txt = "hok_hkw"
+
+    years = [2011, 2012]
+    years_txt = "_years_" + "_".join([str(x) for x in years])
+    #years_txt = ""
+
+
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
-    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23"
-
+    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23" + years_txt
 
     fig_dir = "./plots/velcomp_vs_time/kp_l_3/data_in_mlt/"
     if center_at_zero_mlt:
-        fig_name = rads_txt + "_seasonal_" + veldir+ "_vel_vs_ltm_c0" +\
+        fig_name = rads_txt + years_txt + "_seasonal_" + veldir+ "_vel_vs_ltm_c0" +\
                    "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
     else:
-        fig_name = rads_txt + "_seasonal_" + veldir+ "_vel_vs_ltm" +\
+        fig_name = rads_txt + years_txt + "_seasonal_" + veldir+ "_vel_vs_ltm" +\
                    "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
 
     # create subplots
@@ -185,8 +198,10 @@ def by_season():
     axes[-1].xaxis.set_major_locator(MultipleLocator(base=3))
     if center_at_zero_mlt:
         xlabels = [item.get_text() for item in axes[-1].get_xticklabels()]
-        xlabels = [str(x) for x in range(12, 24, 3) + range(0, 15, 3)]
-        plt.xticks(range(-12, 15, 3), xlabels)
+        #xlabels = [str(x) for x in range(12, 24, 3) + range(0, 15, 3)]
+        #plt.xticks(range(-12, 15, 3), xlabels)
+        xlabels = [str(x) for x in range(18, 24, 3) + range(0, 9, 3)]
+        plt.xticks(range(-6, 9, 3), xlabels)
 
     # save the fig
     fig.savefig(fig_dir + fig_name + ".png", dpi=300)
@@ -495,7 +510,7 @@ def by_imf_clock_angle():
     return
 
 if __name__ == "__main__":
-    #by_season()
+    by_season()
     #by_imf_clock_angle()
-    six_rads_by_year()
+    #six_rads_by_year()
     #by_pairs_of_radars()
