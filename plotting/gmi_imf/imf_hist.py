@@ -41,7 +41,6 @@ def plot_imf_hist(stm, etm, dbdir, dbname, param="theta"):
 
     return fig
 
-
 def plot_imf_clock_angle_hist(stm, etm, dbdir, dbname, bvec_max=0.95, before_mins=20, 
 			      after_mins=10, del_tm=10, sector_center_dist = 90,
 			      bins=[[-30, 30], [150, 210]],
