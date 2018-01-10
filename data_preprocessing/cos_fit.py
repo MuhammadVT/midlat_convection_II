@@ -243,7 +243,7 @@ def cos_curve_fit(azms, vels, sigma):
 
     return fitpars, perrs
 
-if __name__ == "__main__":
+def main():
     
     import logging
 
@@ -251,19 +251,20 @@ if __name__ == "__main__":
     # MySQL server communication will be written.
 #    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_hok_hkw_azbin_nvel_min_5.log",
 #                        level=logging.INFO)
-#   logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_six_rads_years_2013_2014.log",
-#                       level=logging.INFO)
-    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_ade_adw_2013_2014.log",
+    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_six_rads_years_2015_2016.log",
                         level=logging.INFO)
+#    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_ade_adw_2013_2014.log",
+#                        level=logging.INFO)
+
 
     # initialize parameters
-    selected_years = [2013, 2014]
+    selected_years = [2015, 2016]
     years_txt = "_years_" + "_".join([str(x) for x in selected_years])
     #years_txt = ""
 
-    #rads_txt = "six_rads"
+    rads_txt = "six_rads"
     #rads_txt = "bks_wal"
-    rads_txt = "ade_adw"
+    #rads_txt = "ade_adw"
 
     input_table = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
     output_table = "master_cosfit_" + rads_txt + "_kp_00_to_23" + years_txt
@@ -279,3 +280,62 @@ if __name__ == "__main__":
             azbin_nvel_min=10, naz_min=3, az_span_min=30,
             sqrt_weighting=True)
 
+    return
+
+def main_imf():
+    
+    import logging
+
+    # create a log file to which any error occured between client and
+    # MySQL server communication will be written.
+    logging.basicConfig(filename="./log_files/master_cosfit_six_rads_kp_00_to_23_binned_by_imf_clock_angle.log",
+                        level=logging.INFO)
+
+    # input parameters
+    ftype = "fitacf"
+    coords = "mlt"
+    config_filename="../mysql_dbconfig_files/config.ini"
+    section="midlat"
+
+    #selected_years=[2011, 2012]
+    #years_txt = "_years_" + "_".join([str(x) for x in selected_years])
+    years_txt = ""
+    rads_txt = "six_rads"
+    db_name = "master_" + coords + "_" + ftype + "_binned_by_imf_clock_angle"
+
+    # set the imf bins
+    sector_width = 120
+    sector_center_dist = 180
+    #imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
+    imf_bins = [[300, 60], [120, 240]]
+
+    bvec_max = 0.90
+    before_mins=60
+    after_mins=10
+    del_tm=10
+    kp_text = "_kp_00_to_23_"
+
+    for imf_bin in imf_bins:
+        input_table = "master_smry_" + rads_txt + kp_text +\
+                      "b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
+                      "_bfr" + str(before_mins) +\
+                      "_aftr" +  str(after_mins) +\
+                      "_bvec" + str(bvec_max).split('.')[-1]
+
+        output_table = "master_fit_" + rads_txt + kp_text + \
+                       "b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
+                       "_bfr" + str(before_mins) +\
+                       "_aftr" +  str(after_mins) +\
+                       "_bvec" + str(bvec_max).split('.')[-1]
+
+        cos_fit(input_table, output_table, db_name=db_name,
+             config_filename="../mysql_dbconfig_files/config.ini",
+             section="midlat", ftype=ftype, coords=coords,
+             azbin_nvel_min=10, naz_min=3, az_span_min=30,
+             sqrt_weighting=True)
+
+    return
+
+if __name__ == "__main__":
+    main()
+    #main_imf()
