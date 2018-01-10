@@ -277,7 +277,7 @@ def main(run_in_parallel=False):
                         level=logging.INFO)
 
     stm = dt.datetime(2011, 1, 1)
-    etm = dt.datetime(2013, 1, 1)
+    etm = dt.datetime(2013, 3, 1)
 
     # initialize parameters
     coords = "mlt"
@@ -302,7 +302,7 @@ def main(run_in_parallel=False):
     imf_bins = [[300, 60], [120, 240]]
 
     bvec_max = 0.90
-    before_mins=20
+    before_mins=60
     after_mins=10
     del_tm=10
     
