@@ -412,16 +412,15 @@ def master_summary_by_radar_season(input_table, output_table, coords="mlt", db_n
 	command = "SELECT AVG(vel), STD(vel), COUNT(vel), " +\
                   "mag_glatc, mag_gltc, mag_gazmc, season " +\
 		  "FROM {tb1} "+\
-                  "WHERE rad='{rad1}' OR rad='{rad2}' "+\
+                  "WHERE rad IN {rads} "+\
                   "GROUP BY mag_glatc, mag_gltc, mag_gazmc, season"
     elif coords == "geo":
 	command = "SELECT AVG(vel), STD(vel), COUNT(vel), " +\
                   "geo_glatc, geo_gltc, geo_gazmc, season " +\
 		  "FROM {tb1} "+\
-                  "WHERE rad='{rad1}' OR rad='{rad2}' "+\
+                  "WHERE rad IN {rads} "+\
                   "GROUP BY geo_glatc, geo_gltc, geo_gazmc, season"
-    command = command.format(tb1=input_table, rad1=radar_pair[0],
-                             rad2=radar_pair[1])
+    command = command.format(tb1=input_table, rads=tuple(radar_pair))
 
     # check the db connection before fetching 
     if not conn.is_connected():
@@ -451,13 +450,16 @@ def master_summary_by_radar_season(input_table, output_table, coords="mlt", db_n
             if coords == "mlt":
                 command_tmp = "SELECT vel FROM {tb1} " +\
                               "WHERE mag_glatc={lat} and mag_gltc={lt} and "+\
-                              "mag_gazmc={azm} and season='{season}'"
+                              "mag_gazmc={azm} and season='{season}' and " +\
+                              "(rad IN {rads})"
             elif coords == "geo":
                 command_tmp = "SELECT vel FROM {tb1} " +\
                               "WHERE geo_glatc={lat} and geo_gltc={lt} and "+\
-                              "geo_gazmc={azm} and season='{season}'"
+                              "geo_gazmc={azm} and season='{season}' and " +\
+                              "(rad IN {rads})"
             command_tmp = command_tmp.format(tb1=input_table, lat=lat, lt=lt,
-                                             azm=azm, season=season)
+                                             azm=azm, season=season,
+                                             rads=tuple(radar_pair))
             try:
                 cur.execute(command_tmp)
             except Exception, e:
@@ -466,6 +468,8 @@ def master_summary_by_radar_season(input_table, output_table, coords="mlt", db_n
             vels_tmp = [x[0] for x in vels_tmp]
             vel_median = np.median(vels_tmp)
             vel_std = np.std([x for x in vels_tmp if np.abs(x) < 500.])
+            if np.isnan(vel_std):
+                vel_std = 500.
 
 	    # check the db connection before inserting
 	    if not conn.is_connected():
@@ -857,15 +861,13 @@ def master_summary_by_month(input_table, output_table, coords="mlt", db_name=Non
 
     return
 
-
-
 def main(master_table=True, master_summary_table=True):
     import datetime as dt
     import logging
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/master_table_kp_00_to_23_six_rads_2015_2016.log",
+    logging.basicConfig(filename="./log_files/master_table_kp_00_to_23_bks_wal.log",
                         level=logging.INFO)
 
     # input parameters
@@ -880,18 +882,20 @@ def main(master_table=True, master_summary_table=True):
     #output_table_2 = "master_summary_ade_adw_kp_00_to_23"
 
 
-    #rads_txt = "bks_wal"
+    radar_pair = ["cve", "cvw"]   # used for master_summary_by_radar_season()
+    radar_pair_txt = "_".join(radar_pair)
     rads_txt = "six_rads"
     #rads_txt = "ade_adw"
 
-    selected_years=[2015, 2016]
-    years_txt = "_years_" + "_".join([str(x) for x in selected_years])
-    #years_txt = ""
+    #selected_years=[2015, 2016]
+    #years_txt = "_years_" + "_".join([str(x) for x in selected_years])
+    years_txt = ""
 
     input_table_1 = rads_txt + "_kp_00_to_23_fitacf"
     output_table_1 = "master_" + rads_txt + "_kp_00_to_23"
     input_table_2 = "master_" + rads_txt + "_kp_00_to_23"
-    output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
+    #output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
+    output_table_2 = "master_summary_" + radar_pair_txt + "_kp_00_to_23" + years_txt
     #output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23_by_pseudo_month"
 
     ftype = "fitacf"
@@ -924,17 +928,17 @@ def main(master_table=True, master_summary_table=True):
 #                               config_filename="../mysql_dbconfig_files/config.ini",
 #                               section="midlat")
 
-#        master_summary_by_radar_season(input_table_2, output_table_2, coords=coords,
-#                                       db_name=output_dbname,
-#                                       radar_pair=["cve", "cvw"],
-#                                       config_filename="../mysql_dbconfig_files/config.ini",
-#                                       section="midlat")
-
-        master_summary_by_year_season(input_table_2, output_table_2, coords=coords,
+        master_summary_by_radar_season(input_table_2, output_table_2, coords=coords,
                                        db_name=output_dbname,
-                                       selected_years=selected_years,
+                                       radar_pair=radar_pair,
                                        config_filename="../mysql_dbconfig_files/config.ini",
                                        section="midlat")
+
+#        master_summary_by_year_season(input_table_2, output_table_2, coords=coords,
+#                                       db_name=output_dbname,
+#                                       selected_years=selected_years,
+#                                       config_filename="../mysql_dbconfig_files/config.ini",
+#                                       section="midlat")
 
         print "A master_summary has been built"
 
