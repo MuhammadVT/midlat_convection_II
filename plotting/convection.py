@@ -261,8 +261,8 @@ def main():
     import matplotlib as mpl
 
     # input parameters
-    #nvel_min=300
-    nvel_min=100
+    nvel_min=300
+    #nvel_min=100
     lat_range=[52, 59]
     lat_min = 50
 
@@ -274,14 +274,14 @@ def main():
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
-    rads_txt = "six_rads"
-    #rads_txt = "cve_cvw"
+    #rads_txt = "six_rads"
+    rads_txt = "cve_cvw"
     #rads_txt = "fhe_fhw"
     #rads_txt = "bks_wal"
     #rads_txt = "ade_adw"
     #rads_txt = "hok_hkw"
 
-    #years = [2013, 2014]
+    #years = [2015, 2016]
     #years_txt = "_years_" + "_".join([str(x) for x in years])
     years_txt = ""
 
@@ -324,7 +324,7 @@ def main():
     # add colorbar
     fig.subplots_adjust(right=0.80)
     cbar_ax = fig.add_axes([0.85, 0.25, 0.02, 0.5])
-    add_cbar(fig, coll, bounds, cax=cbar_ax, label="Velocity [m/s]")
+    add_cbar(fig, coll, bounds, cax=cbar_ax, label="Speed [m/s]")
     # save the fig
     fig.savefig(fig_dir + fig_name + ".png", dpi=300)
     #plt.show()

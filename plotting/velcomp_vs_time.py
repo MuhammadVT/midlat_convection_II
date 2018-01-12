@@ -212,10 +212,10 @@ def by_season():
 def six_rads_by_year():
 
     # input parameters
-    nvel_min=100
+    nvel_min=300
     del_lat=1
-    #lat_range=[52, 58]
     lat_range=[52, 61]
+    #lat_range=[52, 61]
     glatc_list = np.arange(lat_range[0]+0.5, lat_range[1]+0.5, del_lat)
     if len(glatc_list) == 0:
         glatc_list = np.array([lat_range[0]]+0.5)
@@ -233,19 +233,19 @@ def six_rads_by_year():
     sqrt_weighting = True
 
     seasons = ["winter", "equinox", "summer"]
-    #rads_txt = "six_rads"
-    #years_list = [[2011, 2012], [2013, 2014], [2015, 2016], None]
-    #legend_txt = ["11_12", "13_14", "15_16", "11_16"]
+    rads_txt = "six_rads"
+    years_list = [[2011, 2012], [2013, 2014], [2015, 2016], None]
+    legend_txt = ["11_12", "13_14", "15_16", "11_16"]
 
-    rads_txt = "ade_adw"
-    years_list = [[2013, 2014], [2015, 2016], None]
-    legend_txt = ["13_14", "15_16", "13_16"]
+#    rads_txt = "ade_adw"
+#    years_list = [[2013, 2014], [2015, 2016], None]
+#    legend_txt = ["13_14", "15_16", "13_16"]
 
     for season in seasons:
 
 	fig_dir = "./plots/velcomp_vs_time/kp_l_3/data_in_mlt/"
 	if center_at_zero_mlt:
-	    fig_name = rads_txt + "_by_year_" + "_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
+	    fig_name = rads_txt + "_by_year_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
 		       "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
 	else:
 	    fig_name = rads_txt + "_by_year_" + "_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
@@ -274,8 +274,8 @@ def six_rads_by_year():
 	    data_dict_list.append(data_dict)
 
 	#color_list = ['darkblue', 'b', 'dodgerblue', 'c', 'g', 'orange', 'r']
-	#color_list = ['k', 'dodgerblue', 'g', 'r']
-	color_list = ['k', 'g', 'r']
+	color_list = ['k', 'dodgerblue', 'g', 'r']
+	#color_list = ['k', 'g', 'r']
 	#markers = ['o', '+', '*', '.']
 	for i, latc in enumerate(glatc_list):
 	    ax = axes[i]
@@ -321,8 +321,8 @@ def six_rads_by_year():
 	# set axis label
 	if center_at_zero_mlt:
 	    xlabels = [item.get_text() for item in axes[-1].get_xticklabels()]
-	    xlabels = [str(x) for x in range(12, 24, 3) + range(0, 15, 3)]
-	    plt.xticks(range(-12, 15, 3), xlabels)
+	    xlabels = [str(x) for x in range(18, 24, 3) + range(0, 9, 3)]
+	    plt.xticks(range(-6, 9, 3), xlabels)
 
 	# save the fig
 	fig.savefig(fig_dir + fig_name + ".png", dpi=300)
@@ -333,7 +333,7 @@ def six_rads_by_year():
 def by_pairs_of_radars():
 
     # input parameters
-    nvel_min=100
+    nvel_min=300
     del_lat=1
     #lat_range=[52, 58]
     lat_range=[52, 61]
@@ -354,18 +354,19 @@ def by_pairs_of_radars():
     sqrt_weighting = True
 
     seasons = ["winter", "equinox", "summer"]
-    rads_txt_list = ["bks_wal", "fhe_fhw", "cve_cvw", "ade_adw", "six_rads"]
+    #rads_txt_list = ["bks_wal", "fhe_fhw", "cve_cvw", "ade_adw", "six_rads"]
     #rads_txt_list = ["bks_wal", "fhe_fhw", "cve_cvw", "six_rads"]
+    rads_txt_list = ["bks_wal", "fhe_fhw", "cve_cvw"]
     years_txt = ""
 
     for season in seasons:
 
 	fig_dir = "./plots/velcomp_vs_time/kp_l_3/data_in_mlt/"
 	if center_at_zero_mlt:
-	    fig_name = "rad_pairs_v2_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
+	    fig_name = "rad_pairs_v3_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
 		       "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
 	else:
-	    fig_name = "rad_pairs_v2_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
+	    fig_name = "rad_pairs_v3_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
 		       "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
 
 	# create subplots
@@ -386,8 +387,9 @@ def by_pairs_of_radars():
 	    data_dict_list.append(data_dict)
 
 	#color_list = ['darkblue', 'b', 'dodgerblue', 'c', 'g', 'orange', 'r']
+	#color_list = ['k', 'dodgerblue', 'g', 'orange', 'r']
 	#color_list = ['k', 'dodgerblue', 'g', 'r']
-	color_list = ['k', 'dodgerblue', 'g', 'orange', 'r']
+	color_list = ['k', 'g', 'r']
 	#markers = ['o', '+', '*', '.']
 	for i, latc in enumerate(glatc_list):
 	    ax = axes[i]
@@ -434,8 +436,8 @@ def by_pairs_of_radars():
 	# set axis label
 	if center_at_zero_mlt:
 	    xlabels = [item.get_text() for item in axes[-1].get_xticklabels()]
-	    xlabels = [str(x) for x in range(12, 24, 3) + range(0, 15, 3)]
-	    plt.xticks(range(-12, 15, 3), xlabels)
+	    xlabels = [str(x) for x in range(18, 24, 3) + range(0, 9, 3)]
+	    plt.xticks(range(-6, 9, 3), xlabels)
 
 	# save the fig
 	fig.savefig(fig_dir + fig_name + ".png", dpi=300)
@@ -510,7 +512,7 @@ def by_imf_clock_angle():
     return
 
 if __name__ == "__main__":
-    by_season()
-    #by_imf_clock_angle()
+    #by_season()
     #six_rads_by_year()
-    #by_pairs_of_radars()
+    by_pairs_of_radars()
+    #by_imf_clock_angle()
