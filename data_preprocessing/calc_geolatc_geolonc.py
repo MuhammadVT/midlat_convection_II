@@ -308,10 +308,10 @@ def calc_latc_lonc(site, bmnum, frang, rsep, altitude=300.,
                                   srang_center[ig], elevation=telv,
                                   altitude=talt, model="IS",
                                   fov_dir="front")
-        if(coords != 'geo'):
-            lonc, latc = coord_conv(lonc, latc, "geo", coords,
-                                    altitude=t_c_alt,
-                                    date_time=date_time)
+#        if(coords != 'geo'):
+#            lonc, latc = coord_conv(lonc, latc, "geo", coords,
+#                                    altitude=t_c_alt,
+#                                    date_time=date_time)
 
         # Save into output arrays
         lat_center[ig] = latc
