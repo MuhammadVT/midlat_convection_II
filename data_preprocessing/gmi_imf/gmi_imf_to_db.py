@@ -47,11 +47,12 @@ class gmi_imf_to_db(object):
 
         import datetime as dt
         from davitpy.gme.ind import readOmni
+        from davitpy.gme.ind import readOmniFtp
         import numpy as np
 
         # read the data we want in GSM coords
         data_dict = {'datetime':[], 'Bx':[], 'By':[], 'Bz':[]}
-        omni_list = readOmni(sTime=self.stm, eTime=self.etm, res=1)
+        omni_list = readOmniFtp(sTime=self.stm, eTime=self.etm, res=1)
         data_dict['datetime'] = [omni_list[i].time for i in range(len(omni_list))]
         data_dict['Bx'] = [omni_list[i].bx for i in range(len(omni_list))]
         data_dict['By'] = [omni_list[i].bym for i in range(len(omni_list))]
@@ -335,8 +336,8 @@ def main():
     import datetime as dt
     stm = dt.datetime(2010, 12, 29)
     etm = dt.datetime(2017, 1, 3)
-    #etm = dt.datetime(2011, 1, 2)
     db_name = None
+    #db_name = "test_imf.sqlite"
     base_location = "../../data/sqlite3/"
 
     kp_lim = None
