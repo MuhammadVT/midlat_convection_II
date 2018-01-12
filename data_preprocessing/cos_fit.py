@@ -251,19 +251,21 @@ def main():
     # MySQL server communication will be written.
 #    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_hok_hkw_azbin_nvel_min_5.log",
 #                        level=logging.INFO)
-    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_six_rads_years_2015_2016.log",
-                        level=logging.INFO)
+#    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_six_rads_years_2015_2016.log",
+#                        level=logging.INFO)
 #    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_ade_adw_2013_2014.log",
 #                        level=logging.INFO)
 
+    logging.basicConfig(filename="./log_files/master_cosfit_kp_00_to_23_bks_wal.log",
+                        level=logging.INFO)
 
     # initialize parameters
-    selected_years = [2015, 2016]
-    years_txt = "_years_" + "_".join([str(x) for x in selected_years])
-    #years_txt = ""
+    #selected_years = [2015, 2016]
+    #years_txt = "_years_" + "_".join([str(x) for x in selected_years])
+    years_txt = ""
 
-    rads_txt = "six_rads"
-    #rads_txt = "bks_wal"
+    #rads_txt = "six_rads"
+    rads_txt = "cve_cvw"
     #rads_txt = "ade_adw"
 
     input_table = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
