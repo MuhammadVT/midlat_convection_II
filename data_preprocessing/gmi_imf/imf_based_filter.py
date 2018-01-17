@@ -277,7 +277,7 @@ def main(run_in_parallel=False):
                         level=logging.INFO)
 
     stm = dt.datetime(2011, 1, 1)
-    etm = dt.datetime(2013, 3, 1)
+    etm = dt.datetime(2017, 1, 1)
 
     # initialize parameters
     coords = "mlt"
@@ -296,13 +296,12 @@ def main(run_in_parallel=False):
     imf_db_location="../../data/sqlite3/"
 
     # set the imf bins
-    sector_width = 120
-    sector_center_dist = 180
-    #imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
-    imf_bins = [[300, 60], [120, 240]]
+    sector_width = 60
+    sector_center_dist = 90
+    imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
 
-    bvec_max = 0.90
-    before_mins=60
+    bvec_max = 0.95
+    before_mins=20
     after_mins=10
     del_tm=10
     
@@ -317,8 +316,8 @@ def main(run_in_parallel=False):
 
 	output_table = "master_" + rads_txt + kp_text +\
 		       "_b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
-		       "_before" + str(before_mins) +\
-		       "_after" +  str(after_mins) +\
+		       "_bfr" + str(before_mins) +\
+		       "_aftr" +  str(after_mins) +\
 		       "_bvec" + str(bvec_max).split('.')[-1]
 
         if run_in_parallel:
