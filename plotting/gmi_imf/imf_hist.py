@@ -127,7 +127,9 @@ if __name__ == "__main__":
 
     fig_path = "../plots/gmi_imf/"
     fig_name = "hist_imf_clock_angle_" + \
-               stm.strftime("%Y%m%d") + "_" + etm.strftime("%Y%m%d") + "_kp_" +\
+               stm.strftime("%Y%m%d") + "_" + etm.strftime("%Y%m%d") +\
+               "_before" + str(before_mins) + "_after" +  str(after_mins) + \
+               "_bvec" + str(bvec_max).split('.')[-1] + "_kp_" +\
                "_to_".join(["".join(str(x).split('.')) for x in kp_lim]) + ".png"
     fig.savefig(fig_path+fig_name, dpi=200)
 

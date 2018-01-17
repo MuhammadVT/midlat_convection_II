@@ -153,9 +153,9 @@ if __name__ == "__main__":
     sqrt_weighting=True
     ftype = "fitacf"
     coords = "mlt"
-    rads_txt = "six_rads"
+    #rads_txt = "six_rads"
     #rads_txt = "ade_adw"
-    #rads_txt = "cve_cvw"
+    rads_txt = "cve_cvw"
     #rads_txt = "fhe_fhw"
     #rads_txt = "bks_wal"
     #rads_txt = "hok_hkw"
