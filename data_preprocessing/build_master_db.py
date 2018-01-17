@@ -293,6 +293,8 @@ def master_summary_by_season(input_table, output_table, coords="mlt", db_name=No
             vels_tmp = [x[0] for x in vels_tmp]
             vel_median = np.median(vels_tmp)
             vel_std = np.std([x for x in vels_tmp if np.abs(x) < 500.])
+            if np.isnan(vel_std):
+                vel_std = 500.
 
 	    # check the db connection before inserting
 	    if not conn.is_connected():
@@ -867,7 +869,7 @@ def main(master_table=True, master_summary_table=True):
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/master_table_kp_00_to_23_bks_wal.log",
+    logging.basicConfig(filename="./log_files/master_summary_cve_cvw_kp_00_to_23_years_2011_2012.log",
                         level=logging.INFO)
 
     # input parameters
@@ -884,18 +886,19 @@ def main(master_table=True, master_summary_table=True):
 
     radar_pair = ["cve", "cvw"]   # used for master_summary_by_radar_season()
     radar_pair_txt = "_".join(radar_pair)
-    rads_txt = "six_rads"
-    #rads_txt = "ade_adw"
+    #rads_txt = "six_rads"
+    rads_txt = "cve_cvw"
 
-    #selected_years=[2015, 2016]
-    #years_txt = "_years_" + "_".join([str(x) for x in selected_years])
-    years_txt = ""
+    selected_years=[2011, 2012]
+    years_txt = "_years_" + "_".join([str(x) for x in selected_years])
+    #years_txt = ""
 
     input_table_1 = rads_txt + "_kp_00_to_23_fitacf"
     output_table_1 = "master_" + rads_txt + "_kp_00_to_23"
-    input_table_2 = "master_" + rads_txt + "_kp_00_to_23"
-    #output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
-    output_table_2 = "master_summary_" + radar_pair_txt + "_kp_00_to_23" + years_txt
+    #input_table_2 = "master_" + rads_txt + "_kp_00_to_23"
+    input_table_2 = "master_" + rads_txt + "_kp_00_to_23" + years_txt
+    output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
+    #output_table_2 = "master_summary_" + radar_pair_txt + "_kp_00_to_23" + years_txt
     #output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23_by_pseudo_month"
 
     ftype = "fitacf"
@@ -923,16 +926,16 @@ def main(master_table=True, master_summary_table=True):
 #                                config_filename="../mysql_dbconfig_files/config.ini",
 #                                section="midlat", pseudo_month=False)
 
-#        master_summary_by_season(input_table_2, output_table_2, coords=coords,
-#                               db_name=output_dbname,
-#                               config_filename="../mysql_dbconfig_files/config.ini",
-#                               section="midlat")
+        master_summary_by_season(input_table_2, output_table_2, coords=coords,
+                               db_name=output_dbname,
+                               config_filename="../mysql_dbconfig_files/config.ini",
+                               section="midlat")
 
-        master_summary_by_radar_season(input_table_2, output_table_2, coords=coords,
-                                       db_name=output_dbname,
-                                       radar_pair=radar_pair,
-                                       config_filename="../mysql_dbconfig_files/config.ini",
-                                       section="midlat")
+#        master_summary_by_radar_season(input_table_2, output_table_2, coords=coords,
+#                                       db_name=output_dbname,
+#                                       radar_pair=radar_pair,
+#                                       config_filename="../mysql_dbconfig_files/config.ini",
+#                                       section="midlat")
 
 #        master_summary_by_year_season(input_table_2, output_table_2, coords=coords,
 #                                       db_name=output_dbname,
@@ -947,6 +950,7 @@ def main(master_table=True, master_summary_table=True):
 def main_imf(master_table=True, master_summary_table=True):
     import datetime as dt
     import logging
+    import numpy as np
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
@@ -967,25 +971,24 @@ def main_imf(master_table=True, master_summary_table=True):
     output_dbname = "master_" + coords + "_" + ftype + "_binned_by_imf_clock_angle"
 
     # set the imf bins
-    sector_width = 120
-    sector_center_dist = 180
-    #imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
-    imf_bins = [[300, 60], [120, 240]]
+    sector_width = 60
+    sector_center_dist = 90
+    imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
 
-    bvec_max = 0.90
-    before_mins=60
+    bvec_max = 0.95
+    before_mins=20
     after_mins=10
     del_tm=10
     kp_text = "_kp_00_to_23_"
 
     for imf_bin in imf_bins:
-        input_table_2 = "master_" + rads_txt + kp_text + \
+        input_table = "master_" + rads_txt + kp_text + \
                          "b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
-                         "_before" + str(before_mins) +\
-                         "_after" +  str(after_mins) +\
+                         "_bfr" + str(before_mins) +\
+                         "_aftr" +  str(after_mins) +\
                          "_bvec" + str(bvec_max).split('.')[-1]
 
-        output_table_2 = "master_smry_" + rads_txt + kp_text +\
+        output_table = "master_smry_" + rads_txt + kp_text +\
                          "b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
                          "_bfr" + str(before_mins) +\
                          "_aftr" +  str(after_mins) +\
@@ -999,7 +1002,7 @@ def main_imf(master_table=True, master_summary_table=True):
 	if master_summary_table:
 	    # build a summary table
 	    print "building a master_summary table"
-	    master_summary_by_season(input_table_2, output_table_2, coords=coords,
+	    master_summary_by_season(input_table, output_table, coords=coords,
 				   db_name=output_dbname,
 				   config_filename="../mysql_dbconfig_files/config.ini",
 				   section="midlat")
@@ -1010,6 +1013,6 @@ def main_imf(master_table=True, master_summary_table=True):
 
 
 if __name__ == "__main__":
-    main(master_table=False, master_summary_table=True)
-    #main_imf(master_table=False, master_summary_table=True)
+    #main(master_table=False, master_summary_table=True)
+    main_imf(master_table=False, master_summary_table=True)
 
