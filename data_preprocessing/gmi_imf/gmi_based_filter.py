@@ -215,17 +215,17 @@ def main(run_in_parallel=False):
     import multiprocessing as mp
     import logging
 
-    # create a log file to which any error occured between client and
-    # MySQL server communication will be written.
-    logging.basicConfig(filename="../log_files/kp_40_to_90_six_rads.log",
-                        level=logging.INFO)
-
     # initialize parameters
     #rad_list = ["hok", "hkw"]
     #rad_list = ["ade", "adw"]
     rad_list = ['bks', 'wal', 'fhe', 'fhw', 'cve', 'cvw'] 
     #kp_lim = [0.0, 2.3]    # the range boundaries are inclusive
-    kp_lim = [4.0, 9.0]    # the range boundaries are inclusive
+    kp_lim = [0.0, 0.3]    # the range boundaries are inclusive
+    #kp_lim = [0.7, 1.3]    # the range boundaries are inclusive
+    #kp_lim = [1.7, 2.3]    # the range boundaries are inclusive
+    #kp_lim = [2.7, 3.3]    # the range boundaries are inclusive
+    #kp_lim = [2.7, 4.3]    # the range boundaries are inclusive
+    #kp_lim = [3.7, 9.0]    # the range boundaries are inclusive
     kp_text = "_to_".join(["".join(str(x).split(".")) for x in kp_lim])
 	
     coords = "mlt"
@@ -238,6 +238,11 @@ def main(run_in_parallel=False):
     ten_min_median_dbname=None
     gmi_dbname=None
     gmi_db_location="../../data/sqlite3/"
+
+    # create a log file to which any error occured between client and
+    # MySQL server communication will be written.
+    logging.basicConfig(filename="../log_files/six_rads_kp_" + kp_text + ".log",
+                        level=logging.INFO)
     
     # run in parallel
     # store the multiprocess

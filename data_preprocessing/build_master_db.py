@@ -867,39 +867,25 @@ def main(master_table=True, master_summary_table=True):
     import datetime as dt
     import logging
 
-    # create a log file to which any error occured between client and
-    # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/master_summary_cve_cvw_kp_00_to_23_years_2011_2012.log",
-                        level=logging.INFO)
-
     # input parameters
-    #input_table_1 = "hok_hkw_kp_00_to_23_fitacf"
-    #output_table_1 = "master_hok_hkw_kp_00_to_23"
-    #input_table_2 = "master_hok_hkw_kp_00_to_23"
-    #output_table_2 = "master_summary_hok_hkw_kp_00_to_23"
+    #radar_pair = ["cve", "cvw"]   # used for master_summary_by_radar_season()
+    #radar_pair_txt = "_".join(radar_pair)
 
-    #input_table_1 = "ade_adw_kp_00_to_23_fitacf"
-    #output_table_1 = "master_ade_adw_kp_00_to_23"
-    #input_table_2 = "master_ade_adw_kp_00_to_23"
-    #output_table_2 = "master_summary_ade_adw_kp_00_to_23"
+    rads_txt = "six_rads"
+    #rads_txt = "cve_cvw"
 
+    #selected_years=[2011, 2012]
+    #years_txt = "_years_" + "_".join([str(x) for x in selected_years])
+    years_txt = ""
+    #kp_text = "_kp_00_to_23"
+    kp_text = "_kp_00_to_03"
 
-    radar_pair = ["cve", "cvw"]   # used for master_summary_by_radar_season()
-    radar_pair_txt = "_".join(radar_pair)
-    #rads_txt = "six_rads"
-    rads_txt = "cve_cvw"
-
-    selected_years=[2011, 2012]
-    years_txt = "_years_" + "_".join([str(x) for x in selected_years])
-    #years_txt = ""
-
-    input_table_1 = rads_txt + "_kp_00_to_23_fitacf"
-    output_table_1 = "master_" + rads_txt + "_kp_00_to_23"
-    #input_table_2 = "master_" + rads_txt + "_kp_00_to_23"
-    input_table_2 = "master_" + rads_txt + "_kp_00_to_23" + years_txt
-    output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
-    #output_table_2 = "master_summary_" + radar_pair_txt + "_kp_00_to_23" + years_txt
-    #output_table_2 = "master_summary_" + rads_txt + "_kp_00_to_23_by_pseudo_month"
+    input_table_1 = rads_txt + kp_text + "_fitacf"
+    output_table_1 = "master_" + rads_txt + kp_text
+    input_table_2 = "master_" + rads_txt + kp_text + years_txt
+    output_table_2 = "master_summary_" + rads_txt + kp_text + years_txt
+    #output_table_2 = "master_summary_" + radar_pair_txt + kp_text + years_txt
+    #output_table_2 = "master_summary_" + rads_txt + kp_text + "_by_pseudo_month"
 
     ftype = "fitacf"
     coords = "mlt"
@@ -907,6 +893,12 @@ def main(master_table=True, master_summary_table=True):
     section="midlat"
     input_dbname = "ten_min_median_" + coords + "_" + ftype
     output_dbname = "master_" + coords + "_" +ftype
+
+
+    # create a log file to which any error occured between client and
+    # MySQL server communication will be written.
+    logging.basicConfig(filename="./log_files/master_summary_" + rads_txt + \
+                        kp_text + ".log", level=logging.INFO)
 
     if master_table:
         # build a master table 
@@ -952,11 +944,6 @@ def main_imf(master_table=True, master_summary_table=True):
     import logging
     import numpy as np
 
-    # create a log file to which any error occured between client and
-    # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/master_summary_six_rads_kp_00_to_23_binned_by_imf_clock_angle.log",
-                        level=logging.INFO)
-
     # input parameters
     ftype = "fitacf"
     coords = "mlt"
@@ -980,6 +967,12 @@ def main_imf(master_table=True, master_summary_table=True):
     after_mins=10
     del_tm=10
     kp_text = "_kp_00_to_23_"
+
+    # create a log file to which any error occured between client and
+    # MySQL server communication will be written.
+    logging.basicConfig(filename="./log_files/master_summary_" + rads_txt + \
+                        kp_text + "binned_by_imf_clock_angle.log",
+                        level=logging.INFO)
 
     for imf_bin in imf_bins:
         input_table = "master_" + rads_txt + kp_text + \
@@ -1013,6 +1006,6 @@ def main_imf(master_table=True, master_summary_table=True):
 
 
 if __name__ == "__main__":
-    #main(master_table=False, master_summary_table=True)
-    main_imf(master_table=False, master_summary_table=True)
+    main(master_table=True, master_summary_table=True)
+    #main_imf(master_table=False, master_summary_table=True)
 
