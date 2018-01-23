@@ -165,14 +165,14 @@ def vector_plot(ax, data_dict, cmap, bounds, velscl=1, lat_min=50, title="xxx",
 
     # plot the latitudinal circles
     for r in [10, 30, 50]:
-        c = plt.Circle((0, 0), radius=r, fill=False)
+        c = plt.Circle((0, 0), radius=r, fill=False, linewidth=0.5)
         ax.add_patch(c)
 
     # plot the longitudinal lines
     for l in np.deg2rad(np.array([210, 240, 270, 300, 330])):
         x1, y1 = pol2cart(l, 10) 
         x2, y2 = pol2cart(l, 50) 
-        ax.plot([x1, x2], [y1, y2], 'k')
+        ax.plot([x1, x2], [y1, y2], 'k', linewidth=0.5)
 
     x1, y1 = pol2cart(np.deg2rad(data_dict['glonc']-90),
                       fake_pole_lat-np.abs(data_dict['glatc']))
@@ -263,8 +263,8 @@ def main():
     import matplotlib as mpl
 
     # input parameters
-    nvel_min=50
-    lat_range=[52, 60]
+    nvel_min=100
+    lat_range=[53, 61]
     lat_min = 50
 
     ftype = "fitacf"
