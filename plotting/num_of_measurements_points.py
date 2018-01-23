@@ -53,7 +53,7 @@ def num_plot(ax, data_dict, season, cmap, bounds,
                     ,cmap=cmap,norm=norm)
 
     # add labels
-    ax.set_title(title, fontsize="small")
+    ax.set_title(title, fontsize="medium")
     # add latitudinal labels
     fnts = 'small'
     ax.annotate("80", xy=(0, -10), ha="left", va="bottom", fontsize=fnts)
@@ -112,23 +112,31 @@ def by_season():
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
-    #rads_txt = "six_rads"
+    rads_txt = "six_rads"
     #rads_txt = "cve_cvw"
     #rads_txt = "fhe_fhw"
-    rads_txt = "bks_wal"
+    #rads_txt = "bks_wal"
     #rads_txt = "ade_adw"
     #rads_txt = "hok_hkw"
 
     #years = [2015, 2016]
     #years_txt = "_years_" + "_".join([str(x) for x in years])
     years_txt = ""
+    kp_text = "_kp_00_to_03"
+    kp_text_dict ={"_kp_00_to_03" : r", Kp = 0",
+                   "_kp_07_to_13" : r", Kp = 1",
+                   "_kp_17_to_23" : r", Kp = 2",
+                   "_kp_27_to_33" : r", Kp = 3",
+                   "_kp_27_to_43" : r", 3-$\leq$Kp$\leq$4+",
+                   "_kp_37_to_90" : r", Kp $\geq$ 4-"}
+
 
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
-    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23" + years_txt
+    input_table = "master_cosfit_" + rads_txt + kp_text + years_txt
 
     seasons = ["winter", "summer", "equinox"]
 
-    fig_dir = "./plots/num_measurement_points/kp_l_3/data_in_mlt/"
+    fig_dir = "./plots/num_measurement_points/" + kp_text[1:] + "/data_in_mlt/"
     fig_name = rads_txt + years_txt + "_seasonal_num_measurement_points"
    
     # create subplots
@@ -157,7 +165,7 @@ def by_season():
 
 
         # plot the flow vectors
-        title = "Number of Measurements, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
+        title = "Number of Measurements, " + season[0].upper()+season[1:] + kp_text_dict[kp_text] 
         coll = num_plot(axes[i], data_dict, season, cmap, bounds,
                         lat_min=lat_min, title=title)
 
