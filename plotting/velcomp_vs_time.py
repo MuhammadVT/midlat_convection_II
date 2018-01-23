@@ -107,28 +107,16 @@ def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
 def by_season():
 
     # input parameters
+    #nvel_min=100
     nvel_min=300
     #del_lat=3
     del_lat=1
-    lat_range=[58, 65]
-    #lat_range=[52, 59]
-
-#    nvel_min=100
-#    del_lat=1
-#    #lat_range=[58, 65]
-#    lat_range=[53, 60]
-
-
-#    nvel_min=100
-#    del_lat=1
-#    #lat_range=[58, 65]
-#    lat_range=[42, 49]
-
+    #lat_range=[58, 65]
+    lat_range=[52, 59]
 
     glatc_list = np.arange(lat_range[1]-0.5, lat_range[0]-0.5, -del_lat)
     #lat_range=[40, 60]
     #glatc_list = np.array([41.5, 50.5])
-    #print glatc_list
     if len(glatc_list) == 0:
         glatc_list = np.array([lat_range[0]]+0.5)
     
@@ -138,8 +126,8 @@ def by_season():
     coords = "mlt"
 
     #veldir="all"
-    veldir="zonal"
-    #veldir="meridional"
+    #veldir="zonal"
+    veldir="meridional"
     center_at_zero_mlt=True
     #center_at_zero_mlt=False
 
@@ -151,16 +139,23 @@ def by_season():
     #rads_txt = "ade_adw"
     #rads_txt = "hok_hkw"
 
-    years = [2011, 2012]
-    years_txt = "_years_" + "_".join([str(x) for x in years])
-    #years_txt = ""
+    #years = [2011, 2012]
+    #years_txt = "_years_" + "_".join([str(x) for x in years])
+    years_txt = ""
 
+    #kp_text = "_kp_00_to_23"
+    kp_text = "_kp_00_to_03"
+    kp_text_dict ={"_kp_00_to_03" : r", Kp = 0",
+                   "_kp_07_to_13" : r", Kp = 1",
+                   "_kp_17_to_23" : r", Kp = 2",
+                   "_kp_27_to_33" : r", Kp = 3",
+                   "_kp_27_to_43" : r", 3-$\leq$Kp$\leq$4+",
+                   "_kp_37_to_90" : r", Kp $\geq$ 4-"}
 
-    #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
-    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23" + years_txt
+    input_table = "master_cosfit_" + rads_txt + kp_text + years_txt
 
-    fig_dir = "./plots/velcomp_vs_time/kp_l_3/data_in_mlt/"
+    fig_dir = "./plots/velcomp_vs_time/" + kp_text[1:] + "/data_in_mlt/"
     if center_at_zero_mlt:
         fig_name = rads_txt + years_txt + "_seasonal_" + veldir+ "_vel_vs_ltm_c0" +\
                    "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
@@ -185,10 +180,10 @@ def by_season():
 
         # plot the flow vector components
         if veldir == "all" :
-            title = "Velocity Magnitude, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
+            title = "Velocity Magnitude, " + season[0].upper()+season[1:] + kp_text_dict[kp_text]
         else:
             title = veldir[0].upper()+veldir[1:] + " Velocities, " +\
-                    season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
+                    season[0].upper()+season[1:] + kp_text_dict[kp_text]
         vel_vs_lt(axes[i], data_dict, veldir=veldir, center_at_zero_mlt=center_at_zero_mlt,
                 glatc_list=glatc_list, title=title, add_err_bar=add_err_bar)
 
@@ -644,7 +639,7 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
     return
 
 if __name__ == "__main__":
-    #by_season()
+    by_season()
     #six_rads_by_year()
     #by_pairs_of_radars()
-    by_imf_clock_angle(single_imf_bin=True, single_lat=True)
+    #by_imf_clock_angle(single_imf_bin=True, single_lat=True)
