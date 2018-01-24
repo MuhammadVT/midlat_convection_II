@@ -153,28 +153,37 @@ if __name__ == "__main__":
     sqrt_weighting=True
     ftype = "fitacf"
     coords = "mlt"
-    #rads_txt = "six_rads"
+    rads_txt = "six_rads"
     #rads_txt = "ade_adw"
-    rads_txt = "cve_cvw"
+    #rads_txt = "cve_cvw"
     #rads_txt = "fhe_fhw"
     #rads_txt = "bks_wal"
     #rads_txt = "hok_hkw"
 
-    years = [2011, 2012]
-    years_txt = "_years_" + "_".join([str(x) for x in years])
-    #years_txt = ""
+    #years = [2011, 2012]
+    #years_txt = "_years_" + "_".join([str(x) for x in years])
+    years_txt = ""
+    #kp_text = "_kp_00_to_23"
+    kp_text = "_kp_37_to_90"
+    kp_text_dict ={"_kp_00_to_03" : r", Kp = 0",
+                   "_kp_00_to_23" : r", Kp$\leq$2+",
+                   "_kp_07_to_13" : r", Kp = 1",
+                   "_kp_17_to_23" : r", Kp = 2",
+                   "_kp_27_to_33" : r", Kp = 3",
+                   "_kp_27_to_43" : r", 3-$\leq$Kp$\leq$4+",
+                   "_kp_37_to_90" : r", Kp $\geq$ 4-"}
 
-    #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
+
     #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
-    summary_table = "master_summary_" + rads_txt + "_kp_00_to_23" + years_txt
-    cosfit_table = "master_cosfit_" + rads_txt + "_kp_00_to_23" + years_txt
+    summary_table = "master_summary_" + rads_txt + kp_text + years_txt
+    cosfit_table = "master_cosfit_" + rads_txt + kp_text + years_txt
 
     season = "winter"
     #season = "summer"
     #season = "equinox"
 
     fixed_lat = True
-    fixed_lt = False
+    fixed_lt = True
     # Plot points at a given latitude
     if fixed_lat:
         # points of interest
@@ -190,7 +199,7 @@ if __name__ == "__main__":
             plt.subplots_adjust(hspace=0.4)
             axes = [x for l in axes for x in l]
 
-            fig_dir = "./plots/cosfit_plot/kp_l_3/data_in_mlt/"
+            fig_dir = "./plots/cosfit_plot/" + kp_text[1:] + "/data_in_mlt/"
             #fig_name = rads_txt + "_" + season + "_cosfit_mlat"+str(latc) + \
             #           "_mlt" + str(round(ltc/15., 2))
             fig_name = rads_txt + years_txt + "_" + season + "_cosfit_mlat"+str(latc)
@@ -215,6 +224,7 @@ if __name__ == "__main__":
             axes[5].legend(bbox_to_anchor=(1, 0.7), fontsize=5, frameon=False)
 
             # save the plot
+	    plt.figtext(0.5, 0.95, kp_text_dict[kp_text][1:], ma="center")
             fig.savefig(fig_dir + fig_name + ".png", dpi=300)
 
     # Plot points at a given local time
@@ -233,7 +243,7 @@ if __name__ == "__main__":
             plt.subplots_adjust(hspace=0.4)
             axes = [x for l in axes for x in l]
 
-            fig_dir = "./plots/cosfit_plot/kp_l_3/data_in_mlt/"
+            fig_dir = "./plots/cosfit_plot/" + kp_text[1:] + "/data_in_mlt/"
             fig_name = rads_txt + years_txt + "_" + season + "_mlt" + str(round(ltc/15., 0))
 
 
@@ -256,5 +266,6 @@ if __name__ == "__main__":
             axes[5].legend(bbox_to_anchor=(1, 0.7), fontsize=5, frameon=False)
 
             # save the plot
+	    plt.figtext(0.5, 0.95, kp_text_dict[kp_text][1:], ma="center")
             fig.savefig(fig_dir + fig_name + ".png", dpi=300)
 
