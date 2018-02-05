@@ -256,7 +256,7 @@ def main():
     #rads_txt = "cve_cvw"
     #rads_txt = "ade_adw"
     #kp_text = "_kp_00_to_23"
-    kp_text = "_kp_00_to_03"
+    kp_text = "_kp_00_to_13"
 
     input_table = "master_summary_" + rads_txt + kp_text + years_txt
     output_table = "master_cosfit_" + rads_txt + kp_text + years_txt
@@ -292,11 +292,6 @@ def main_imf():
     import logging
     import numpy as np
 
-    # create a log file to which any error occured between client and
-    # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/master_cosfit_six_rads_kp_00_to_23_binned_by_imf_clock_angle.log",
-                        level=logging.INFO)
-
     # input parameters
     ftype = "fitacf"
     coords = "mlt"
@@ -314,21 +309,26 @@ def main_imf():
     sector_center_dist = 90
     imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
 
-    bvec_max = 0.95
-    before_mins=20
-    after_mins=10
+    bvec_max = 0.85
+    before_mins=80
+    after_mins=0
     del_tm=10
-    kp_text = "_kp_00_to_23_"
+    kp_text = "_kp_00_to_23"
+
+    # create a log file to which any error occured between client and
+    # MySQL server communication will be written.
+    logging.basicConfig(filename="./log_files/master_cosfit_" + rads_txt +\
+                        kp_text + "_binned_by_imf_clock_angle.log", level=logging.INFO)
 
     for imf_bin in imf_bins:
         input_table = "master_smry_" + rads_txt + kp_text +\
-                      "b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
+                      "_b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
                       "_bfr" + str(before_mins) +\
                       "_aftr" +  str(after_mins) +\
                       "_bvec" + str(bvec_max).split('.')[-1]
 
         output_table = "master_fit_" + rads_txt + kp_text + \
-                       "b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
+                       "_b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
                        "_bfr" + str(before_mins) +\
                        "_aftr" +  str(after_mins) +\
                        "_bvec" + str(bvec_max).split('.')[-1]
@@ -342,5 +342,5 @@ def main_imf():
     return
 
 if __name__ == "__main__":
-    main()
-    #main_imf()
+    #main()
+    main_imf()

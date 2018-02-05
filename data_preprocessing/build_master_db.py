@@ -878,7 +878,7 @@ def main(master_table=True, master_summary_table=True):
     #years_txt = "_years_" + "_".join([str(x) for x in selected_years])
     years_txt = ""
     #kp_text = "_kp_00_to_23"
-    kp_text = "_kp_00_to_03"
+    kp_text = "_kp_00_to_13"
 
     input_table_1 = rads_txt + kp_text + "_fitacf"
     output_table_1 = "master_" + rads_txt + kp_text
@@ -962,27 +962,27 @@ def main_imf(master_table=True, master_summary_table=True):
     sector_center_dist = 90
     imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
 
-    bvec_max = 0.95
-    before_mins=20
-    after_mins=10
+    bvec_max = 0.85
+    before_mins=80
+    after_mins=0
     del_tm=10
-    kp_text = "_kp_00_to_23_"
+    kp_text = "_kp_00_to_23"
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
     logging.basicConfig(filename="./log_files/master_summary_" + rads_txt + \
-                        kp_text + "binned_by_imf_clock_angle.log",
+                        kp_text + "_binned_by_imf_clock_angle.log",
                         level=logging.INFO)
 
     for imf_bin in imf_bins:
         input_table = "master_" + rads_txt + kp_text + \
-                         "b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
+                         "_b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
                          "_bfr" + str(before_mins) +\
                          "_aftr" +  str(after_mins) +\
                          "_bvec" + str(bvec_max).split('.')[-1]
 
         output_table = "master_smry_" + rads_txt + kp_text +\
-                         "b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
+                         "_b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
                          "_bfr" + str(before_mins) +\
                          "_aftr" +  str(after_mins) +\
                          "_bvec" + str(bvec_max).split('.')[-1]
@@ -1006,6 +1006,6 @@ def main_imf(master_table=True, master_summary_table=True):
 
 
 if __name__ == "__main__":
-    main(master_table=True, master_summary_table=True)
-    #main_imf(master_table=False, master_summary_table=True)
+    #main(master_table=True, master_summary_table=True)
+    main_imf(master_table=False, master_summary_table=True)
 
