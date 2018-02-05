@@ -276,7 +276,7 @@ def main():
     #years = [2011, 2012]
     #years_txt = "_years_" + "_".join([str(x) for x in years])
     years_txt = ""
-    kp_text = "_kp_00_to_23_"
+    kp_text = "_kp_00_to_23"
 
     db_name = "master_" + coords + "_" + ftype + "_binned_by_imf_clock_angle"
 
@@ -294,9 +294,9 @@ def main():
     imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
     bins_txt = ["Bz+", "By+", "Bz-", "By-"]
 
-    bvec_max = 0.95
-    before_mins=20
-    after_mins=10
+    bvec_max = 0.85
+    before_mins=80
+    after_mins=0
     del_tm=10
 
     for j, season in enumerate(seasons):
@@ -309,7 +309,7 @@ def main():
 	if len(imf_bins) == 1:
 	    axes = [axes]
 
-	fig_dir = "./plots/convection_by_imf_clock_angle/kp_l_3/data_in_mlt/"
+	fig_dir = "./plots/convection/kp_l_3/data_in_mlt/convection_by_imf_clock_angle/"
 	fig_name = season + "_convection" +\
 			    "_bfr" + str(before_mins) +\
 			    "_aftr" +  str(after_mins) +\
@@ -318,7 +318,7 @@ def main():
 
 	for i, imf_bin in enumerate(imf_bins):
 	    input_table = "master_fit_" + rads_txt + kp_text + \
-			   "b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
+			   "_b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
 			   "_bfr" + str(before_mins) +\
 			   "_aftr" +  str(after_mins) +\
 			   "_bvec" + str(bvec_max).split('.')[-1]
@@ -340,6 +340,8 @@ def main():
 	fig.subplots_adjust(right=0.85)
 	cbar_ax = fig.add_axes([0.90, 0.25, 0.02, 0.5])
 	add_cbar(fig, coll, bounds, cax=cbar_ax, label="Speed [m/s]")
+
+        plt.figtext(0.5, 0.92, "Stable IMF Interval = " + str(before_mins+del_tm) + " mins", ha="center")
 	# save the fig
 	fig.savefig(fig_dir + fig_name + ".png", dpi=300)
 	#fig.savefig(fig_dir + fig_name + ".pdf", format="pdf")

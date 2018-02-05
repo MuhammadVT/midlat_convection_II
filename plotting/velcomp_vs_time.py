@@ -638,7 +638,7 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
     # input parameters
     nvel_min=100
     del_lat=1
-    lat_range=[53, 59]
+    lat_range=[52, 59]
     glatc_list = np.arange(lat_range[1]-0.5, lat_range[0]-0.5, -del_lat)
     if len(glatc_list) == 0:
         glatc_list = np.array([lat_range[0]]+0.5)
@@ -666,9 +666,14 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
     imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
     bins_txt = ["Bz+", "By+", "Bz-", "By-"]
 
-    bvec_max = 0.95
-    before_mins=20
-    after_mins=10
+    #imf_bins = [[330,30], [150, 210]]
+    #bins_txt = ["Bz+", "Bz-"]
+    #imf_bins = [[60,120], [240, 300]]
+    #bins_txt = ["By+", "By-"]
+
+    bvec_max = 0.9
+    before_mins=50
+    after_mins=0
     del_tm=10
 
     fig_dir = "./plots/velcomp_vs_time/kp_l_3/data_in_mlt/binned_by_imf_clock_angle/"
@@ -736,13 +741,30 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
 		xlabels = [str(x) for x in range(18, 24, 3) + range(0, 9, 3)]
 		plt.xticks(range(-6, 9, 3), xlabels)
 
+	    # add label to last row
+	    for i in range(2,4):
+		axes[i].set_xlabel("MLT")
+		#axes[i].set_xlabel("Solar Local Time")
+
+	    # add legend
+	    #axes[2].legend(bbox_to_anchor=(1.05, 1.00), fontsize=6)
+	    lg = axes[1].legend()
+            legend_txt = [str(x) for x in glatc_list]
+	    txts = lg.get_texts()
+	    for i in range(len(legend_txt)):
+		txts[i].set_text(legend_txt[i])
+		txts[i].set_fontsize(11)
+	    lg.set_bbox_to_anchor((1.25, 0.21))
+
 
 	    # save the fig
+            plt.figtext(0.5, 0.95, "Stable IMF Interval = " + str(before_mins+del_tm) + " mins",
+                        ha="center", fontsize=15)
 	    fig.savefig(fig_dir + fig_name + ".png", dpi=300)
 
     if single_lat:
 	del_lat=1
-	lat_range=[53, 62]
+	lat_range=[52, 61]
 	#glatc_list = np.arange(lat_range[1]-0.5, lat_range[0]-0.5, -del_lat)
 	glatc_list = np.arange(lat_range[0]+0.5, lat_range[1]+0.5, del_lat)
 
@@ -751,7 +773,7 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
 		fig_name = "single_lat_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
 			    "_bfr" + str(before_mins) +\
 			    "_aftr" +  str(after_mins) +\
-			    "_bvec" + str(bvec_max).split('.')[-1]
+			    "_bvec" + str(bvec_max).split('.')[-1] + "_Bz"
 
 	    else:
 		fig_name = "single_lat_" + season + "_" + veldir + "_vel_vs_ltm" +\
@@ -825,6 +847,8 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
 	    lg.set_bbox_to_anchor((1.02, 0.93))
 
 	    # save the fig
+            plt.figtext(0.5, 0.95, "Stable IMF Interval = " + str(before_mins+del_tm) + " mins",
+                        ha="center", fontsize=15)
 	    fig.savefig(fig_dir + fig_name + ".png", dpi=300)
 
     return
@@ -833,5 +857,5 @@ if __name__ == "__main__":
     #by_season()
     #six_rads_by_year()
     #by_pairs_of_radars()
-    #by_imf_clock_angle(single_imf_bin=True, single_lat=True)
-    by_kp(single_kp=True, single_lat=True)
+    #by_kp(single_kp=True, single_lat=True)
+    by_imf_clock_angle(single_imf_bin=True, single_lat=False)

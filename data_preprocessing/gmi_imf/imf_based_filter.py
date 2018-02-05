@@ -271,11 +271,6 @@ def main(run_in_parallel=False):
     import datetime as dt
     import numpy as np
 
-    # create a log file to which any error occured between client and
-    # MySQL server communication will be written.
-    logging.basicConfig(filename="../log_files/master_table_six_rads_kp_00_to_23_binned_by_imf_clock_angle.log",
-                        level=logging.INFO)
-
     stm = dt.datetime(2011, 1, 1)
     etm = dt.datetime(2017, 1, 1)
 
@@ -300,10 +295,16 @@ def main(run_in_parallel=False):
     sector_center_dist = 90
     imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
 
-    bvec_max = 0.95
-    before_mins=20
-    after_mins=10
+    bvec_max = 0.85
+    before_mins=80
+    after_mins=0
     del_tm=10
+
+    # create a log file to which any error occured between client and
+    # MySQL server communication will be written.
+    logging.basicConfig(filename="../log_files/master_" + rads_txt +\
+                                 kp_text + "_binned_by_imf_clock_angle.log",
+                        level=logging.INFO)
     
     # run in parallel
     # store the multiprocess
