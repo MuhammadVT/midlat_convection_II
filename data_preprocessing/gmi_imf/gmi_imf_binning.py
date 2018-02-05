@@ -337,9 +337,9 @@ def main():
 #    print "done"
 
     # bin IMF clock angle 
-    bvec_max = 0.95
-    before_mins=20
-    after_mins=10
+    bvec_max = 0.85
+    before_mins=80
+    after_mins=0
     del_tm=10
 
     sector_width = 60 
