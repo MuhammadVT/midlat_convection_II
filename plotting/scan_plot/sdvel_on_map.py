@@ -50,7 +50,7 @@ class sdvel_on_map(object):
 				    datetime=stime)
 	
     def _load_sddata(self):
-        """ Loads the data of interest"""
+        """ Loads radar data for period of interest"""
 
 	from davitpy import pydarn
 
@@ -112,117 +112,144 @@ class sdvel_on_map(object):
 	self.sites = sites
 	self.fovs = fovs
         return rads_data
+
     def show_map(self):
+	""" Displays the map"""
         import matplotlib.pyplot as plt
         plt.show()
+
+	
+    def overlay_radname(self, fontSize=15, annotate=True):
+	""" Overlay radar names """
+
+	from davitpy import pydarn
+	for i, r in enumerate(self.rads):
+	    pydarn.plotting.overlayRadar(self.map_obj, codes=r, 
+					 dateTime=self.stime,
+					 fontSize=fontSize,
+					 annotate=annotate)
+	return
 
     def overlay_fov():
 	pass
 
-    def overlay_losvel(myData,myMap,param,coords='geo',gsct=0,site=None,\
-                                    fov=None,fill=True,velscl=1000.,dist=1000.,
-                                    cmap=None,norm=None,alpha=1):
-    
-        from davitpy import pydarn
-        if(site is None):
-            site = pydarn.radar.site(radId=myData[0].stid, dt=myData[0].time)
-        if(fov is None):
-            fov = pydarn.radar.radFov.fov(site=site, rsep=myData[0].prm.rsep,
-                                          ngates=myData[0].prm.nrang+1,
-                                          nbeams= site.maxbeam, coords=coords,
-                                          date_time=myData[0].time)
-    
-        if(isinstance(myData,pydarn.sdio.beamData)): myData = [myData]
-    
-        gs_flg,lines = [],[]
-        if fill: verts,intensities = [],[]
-        else: verts,intensities = [[],[]],[[],[]]
-    
-        #loop through gates with scatter
-        for myBeam in myData:
-            for k in range(0,len(myBeam.fit.slist)):
-                if myBeam.fit.slist[k] not in fov.gates: continue
-                r = myBeam.fit.slist[k]
-    
-                if fill:
-                    x1,y1 = myMap(fov.lonFull[myBeam.bmnum,r],fov.latFull[myBeam.bmnum,r])
-                    x2,y2 = myMap(fov.lonFull[myBeam.bmnum,r+1],fov.latFull[myBeam.bmnum,r+1])
-                    x3,y3 = myMap(fov.lonFull[myBeam.bmnum+1,r+1],fov.latFull[myBeam.bmnum+1,r+1])
-                    x4,y4 = myMap(fov.lonFull[myBeam.bmnum+1,r],fov.latFull[myBeam.bmnum+1,r])
-    
-                    #save the polygon vertices
-                    verts.append(((x1,y1),(x2,y2),(x3,y3),(x4,y4),(x1,y1)))
-    
-                    #save the param to use as a color scale
-                    if(param == 'velocity'): intensities.append(myBeam.fit.v[k])
-    
-                else:
-                    x1,y1 = myMap(fov.lonCenter[myBeam.bmnum,r],fov.latCenter[myBeam.bmnum,r])
-                    verts[0].append(x1)
-                    verts[1].append(y1)
-    
-                    x2,y2 = myMap(fov.lonCenter[myBeam.bmnum,r+1],fov.latCenter[myBeam.bmnum,r+1])
-    
-                    theta = math.atan2(y2-y1,x2-x1)
-    
-                    x2,y2 = x1+myBeam.fit.v[k]/velscl*(-1.0)*math.cos(theta)*dist,y1+myBeam.fit.v[k]/velscl*(-1.0)*math.sin(theta)*dist
-    
-                    lines.append(((x1,y1),(x2,y2)))
-                    #save the param to use as a color scale
-                    if(param == 'velocity'): intensities[0].append(myBeam.fit.v[k])
-                if(gsct): gs_flg.append(myBeam.fit.gflg[k])
-    
-    
-        #do the actual overlay
-        if(fill):
-            #if we have data
-            if(verts != []):
-                if(gsct == 0):
-                    inx = np.arange(len(verts))
-                else:
-                    inx = np.where(np.array(gs_flg)==0)
-                    x = PolyCollection(np.array(verts)[np.where(np.array(gs_flg)==1)],
-                        facecolors='.3',linewidths=0,zorder=5,alpha=alpha)
-                    myMap.ax.add_collection(x, autolim=True)
-    
-                pcoll = PolyCollection(np.array(verts)[inx],
-                    edgecolors='face',linewidths=0,closed=False,zorder=4,
-                    alpha=alpha,cmap=cmap,norm=norm)
-                #set color array to intensities
-                pcoll.set_array(np.array(intensities)[inx])
-                myMap.ax.add_collection(pcoll, autolim=True)
-                return intensities,pcoll
-        else:
-            #if we have data
-            if(verts != [[],[]]):
-                if(gsct == 0):
-                    inx = np.arange(len(verts[0]))
-                else:
-                    inx = np.where(np.array(gs_flg)==0)
-                    #plot the ground scatter as open circles
-                    x = myMap.ax.scatter(np.array(verts[0])[np.where(np.array(gs_flg)==1)],\
-                            np.array(verts[1])[np.where(np.array(gs_flg)==1)],\
-                            #s=.1*np.array(intensities[1])[np.where(np.array(gs_flg)==1)],\
-                            s=3.0,\
-                            zorder=6,marker='o',linewidths=.5,facecolors='w',edgecolors='k')
-                    myMap.ax.add_collection(x, autolim=True)
-    
-                #plot the i-s as filled circles
-                ccoll = myMap.ax.scatter(np.array(verts[0])[inx],np.array(verts[1])[inx],
-                                #s=.1*np.array(intensities[1])[inx],zorder=10,marker='o',
-                                s=3.0,zorder=10,marker='o', c=np.abs(np.array(intensities[0])[inx]),
-                                linewidths=.5, edgecolors='face',cmap=cmap,norm=norm)
-    
-                #set color array to intensities
-                #ccoll.set_array(np.array(intensities[0])[inx])
-                myMap.ax.add_collection(ccoll)
-                #plot the velocity vectors
-                lcoll = LineCollection(np.array(lines)[inx],linewidths=.5,zorder=12,cmap=cmap,norm=norm)
-                lcoll.set_array(np.abs(np.array(intensities[0])[inx]))
-                myMap.ax.add_collection(lcoll)
-    
-                return intensities,lcoll
+    def overlay_raw_data(self, param="velocity",
+			   gsct=0, fill=True,
+			   velscl=1.,
+			   slist_lim=[0, 70],
+			   zorder=4,alpha=1,
+			   cmap=None,norm=None):
 
+   	"""Overlays raw LOS data from radars""" 
+
+        from davitpy import pydarn
+	import numpy as np
+        from matplotlib.collections import PolyCollection,LineCollection
+    
+        for i in range(len(self.data)):
+            if self.data is None:
+                continue
+
+            fov = self.fovs[i]
+            site = self.sites[i]
+	    myData = self.data[i]
+            gs_flg,lines = [],[]
+            if fill:
+                verts,intensities = [],[]
+            else:
+                verts = [[],[]]
+                intensities = []
+        
+            #loop through gates with scatter
+            for myBeam in myData:
+                for k in range(len(myBeam.fit.slist)):
+                    if myBeam.fit.slist[k] not in fov.gates:
+                        continue
+                    if (myBeam.fit.slist[k] < slist_lim[0]) or\
+                       (myBeam.fit.slist[k] > slist_lim[1]): 
+			continue
+                    r = myBeam.fit.slist[k]
+                    if fill:
+                        x1,y1 = self.map_obj(fov.lonFull[myBeam.bmnum,r],fov.latFull[myBeam.bmnum,r])
+                        x2,y2 = self.map_obj(fov.lonFull[myBeam.bmnum,r+1],fov.latFull[myBeam.bmnum,r+1])
+                        x3,y3 = self.map_obj(fov.lonFull[myBeam.bmnum+1,r+1],fov.latFull[myBeam.bmnum+1,r+1])
+                        x4,y4 = self.map_obj(fov.lonFull[myBeam.bmnum+1,r],fov.latFull[myBeam.bmnum+1,r])
+        
+                        # save the polygon vertices
+                        verts.append(((x1,y1),(x2,y2),(x3,y3),(x4,y4),(x1,y1)))
+        
+                    else:
+                        x1,y1 = self.map_obj(fov.lonCenter[myBeam.bmnum,r],
+					     fov.latCenter[myBeam.bmnum,r])
+                        verts[0].append(x1)
+                        verts[1].append(y1)
+                        x2,y2 = self.map_obj(fov.lonCenter[myBeam.bmnum,r+1],
+					     fov.latCenter[myBeam.bmnum,r+1])
+                        theta = math.atan2(y2-y1,x2-x1)
+                        x2 = x1+myBeam.fit.v[k]*velscl*(-1.0)*math.cos(theta)
+                        y2 = y1+myBeam.fit.v[k]*velscl*(-1.0)*math.sin(theta)
+                        lines.append(((x1,y1),(x2,y2)))
+
+                    if(gsct):
+                        gs_flg.append(myBeam.fit.gflg[k])
+
+		    #save the param to use as a color scale
+		    if(param == 'velocity'):
+			intensities.append(myBeam.fit.v[k])
+        
+            #do the actual overlay
+            if fill :
+                #if we have data
+                if(verts != []):
+                    if(gsct == 0):
+                        inx = np.arange(len(verts))
+                    else:
+                        inx = np.where(np.array(gs_flg)==0)
+                        x = PolyCollection(np.array(verts)[np.where(np.array(gs_flg)==1)],
+					   facecolors='.3',linewidths=0,
+					   zorder=zorder+1,alpha=alpha)
+                        self.map_obj.ax.add_collection(x, autolim=True)
+                    pcoll = PolyCollection(np.array(verts)[inx],
+					   edgecolors='face',linewidths=0,
+					   closed=False,zorder=zorder,
+					   alpha=alpha, cmap=cmap,norm=norm)
+                    #set color array to intensities
+                    pcoll.set_array(np.array(intensities)[inx])
+                    self.map_obj.ax.add_collection(pcoll, autolim=True)
+            else:
+                #if we have data
+                if(verts != [[],[]]):
+                    if(gsct == 0):
+                        inx = np.arange(len(verts[0]))
+                    else:
+                        inx = np.where(np.array(gs_flg)==0)
+
+                        #plot the ground scatter as open circles
+                        x = self.map_obj.ax.scatter(\
+				np.array(verts[0])[np.where(np.array(gs_flg)==1)],
+                                np.array(verts[1])[np.where(np.array(gs_flg)==1)],
+			        s=3.0, zorder=zorder,marker='o',linewidths=.5,
+				facecolors='w',edgecolors='k')
+                        self.map_obj.ax.add_collection(x, autolim=True)
+        
+                    # plot the i-s as filled circles
+                    ccoll = self.map_obj.ax.scatter(np.array(verts[0])[inx],
+						    np.array(verts[1])[inx],
+						    s=3.0,zorder=zorder+1,marker='o',
+						    c=np.abs(np.array(intensities)[inx]),
+						    linewidths=.5, edgecolors='face',
+						    cmap=cmap,norm=norm)
+        
+                    #set color array to intensities
+                    self.map_obj.ax.add_collection(ccoll)
+
+                    #plot the velocity vectors
+                    lcoll = LineCollection(np.array(lines)[inx],linewidths=.5,
+					   zorder=zorder+2,cmap=cmap,norm=norm)
+                    lcoll.set_array(np.abs(np.array(intensities)[inx]))
+                    self.map_obj.ax.add_collection(lcoll)
+	return
+        
 
     def griddedVel(self, rads, myData, fovs,lat_min=60,lat_max=90,dlat=1, range_minlim= 450, npnts_minlim=3,
             half_dlat_offset=False):
@@ -720,19 +747,54 @@ class sdvel_on_map(object):
 
 if __name__ == "__main__":
     import datetime as dt
+    import numpy as np
     import matplotlib.pyplot as plt
+    from matplotlib.colors import ListedColormap as lcm
+    from matplotlib.colors import BoundaryNorm
+    import matplotlib.cm
 
     fig, ax = plt.subplots(figsize=(8,6))
     stime = dt.datetime(2012, 11, 7, 4, 0)
     interval = 2*60
     coords = "mlt"
     rads = ["cve", "cvw"]
+
+#    # customized cmap
+#    cmj = matplotlib.cm.jet
+#    cmpr = matplotlib.cm.prism
+#    cmap = lcm([cmj(.95), cmj(.85), cmj(.79), cmpr(.142), cmj(.45), cmj(.3), cmj(.1)])
+#    scale=[0,150]
+#    bounds = np.round(np.linspace(scale[0], scale[1], 7))
+#    bounds = np.append(bounds, 50000.)
+#    color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
+#    cmap = mpl.colors.ListedColormap(color_list)
+#    bounds = [0., 8, 17, 25, 33, 42, 10000]
+    cmap = "jet"
+
+    # norm for color coding the velocity vectors and points
+    #norm = BoundaryNorm(bounds, cmap.N)
+    norm = None
+
+
+    # create an obj
     obj = sdvel_on_map(ax, rads, stime, interval=interval,
-                       map_lat0=50, map_lon0=0,
-                       map_width=50*111e3, 
-                       map_height=50*111e3, 
-                       map_resolution='l', 
-                       coords=coords,
-                       channel=None,
-                       fileType="fitacf")
+		       map_lat0=60, map_lon0=0,
+		       map_width=90*111e3, 
+		       map_height=50*111e3, 
+		       map_resolution='l', 
+		       coords=coords,
+		       channel=None,
+		       fileType="fitacf")
+
+    # Overlay LOS velocity data 
+    obj.overlay_raw_data(param="velocity",
+			 gsct=0, fill=True,
+			 velscl=1.,
+			 slist_lim=[0, 70],
+			 zorder=4,alpha=1,
+			 cmap=cmap,norm=None)
+    # Overlay Radar Names
+    obj.overlay_radname()
+
+
 
