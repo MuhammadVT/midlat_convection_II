@@ -1,4 +1,5 @@
 class sdvel_on_map(object):
+    """ A class to load and overlay various types of radar data """
 
     def __init__(self, ax, rads, stime,
                  interval=120,
@@ -119,7 +120,7 @@ class sdvel_on_map(object):
         plt.show()
 
 	
-    def overlay_radname(self, fontSize=15, annotate=True):
+    def overlay_radName(self, fontSize=15, annotate=True):
 	""" Overlay radar names """
 
 	from davitpy import pydarn
@@ -130,8 +131,17 @@ class sdvel_on_map(object):
 					 annotate=annotate)
 	return
 
-    def overlay_fov():
-	pass
+    def overlay_radFov(self, maxGate=70):
+        """overlay radar fields of view"""
+
+	from davitpy import pydarn
+
+	for i,r in enumerate(self.rads):
+	    pydarn.plotting.overlayFov(self.map_obj, codes=r, 
+				       dateTime=self.stime,
+				       maxGate=maxGate,
+				       fovObj=self.fovs[i])
+	return
 
     def overlay_raw_data(self, param="velocity",
 			   gsct=0, fill=True,
@@ -794,7 +804,9 @@ if __name__ == "__main__":
 			 zorder=4,alpha=1,
 			 cmap=cmap,norm=None)
     # Overlay Radar Names
-    obj.overlay_radname()
+    obj.overlay_radName()
 
+    # Overlay Radar FoVs
+    obj.overlay_radFov(maxGate=70)
 
 
