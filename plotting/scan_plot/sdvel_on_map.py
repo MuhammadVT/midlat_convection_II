@@ -49,7 +49,8 @@ class sdvel_on_map(object):
 				    llcrnrlon=llcrnrlon, llcrnrlat=llcrnrlat,
 				    urcrnrlon=urcrnrlon, urcrnrlat=urcrnrlat,
 				    datetime=stime)
-	
+        self.gridded_losvel = None
+
     def _load_sddata(self):
         """ Loads radar data for period of interest"""
 
@@ -146,7 +147,7 @@ class sdvel_on_map(object):
     def overlay_raw_data(self, param="velocity",
 			   gsct=0, fill=True,
 			   velscl=1.,
-			   slist_lim=[0, 70],
+			   srange_lim=[450, 4000],
 			   zorder=4,alpha=1,
 			   cmap=None,norm=None):
 
@@ -157,7 +158,7 @@ class sdvel_on_map(object):
         from matplotlib.collections import PolyCollection,LineCollection
     
         for i in range(len(self.data)):
-            if self.data is None:
+            if self.data[i] is None:
                 continue
 
             fov = self.fovs[i]
@@ -175,15 +176,19 @@ class sdvel_on_map(object):
                 for k in range(len(myBeam.fit.slist)):
                     if myBeam.fit.slist[k] not in fov.gates:
                         continue
-                    if (myBeam.fit.slist[k] < slist_lim[0]) or\
-                       (myBeam.fit.slist[k] > slist_lim[1]): 
+                    if (myBeam.fit.slist[k] * myBeam.prm.rsep < srange_lim[0]) or\
+                       (myBeam.fit.slist[k] * myBeam.prm.rsep > srange_lim[1]): 
 			continue
                     r = myBeam.fit.slist[k]
                     if fill:
-                        x1,y1 = self.map_obj(fov.lonFull[myBeam.bmnum,r],fov.latFull[myBeam.bmnum,r])
-                        x2,y2 = self.map_obj(fov.lonFull[myBeam.bmnum,r+1],fov.latFull[myBeam.bmnum,r+1])
-                        x3,y3 = self.map_obj(fov.lonFull[myBeam.bmnum+1,r+1],fov.latFull[myBeam.bmnum+1,r+1])
-                        x4,y4 = self.map_obj(fov.lonFull[myBeam.bmnum+1,r],fov.latFull[myBeam.bmnum+1,r])
+                        x1,y1 = self.map_obj(fov.lonFull[myBeam.bmnum,r],
+                                             fov.latFull[myBeam.bmnum,r])
+                        x2,y2 = self.map_obj(fov.lonFull[myBeam.bmnum,r+1],
+                                             fov.latFull[myBeam.bmnum,r+1])
+                        x3,y3 = self.map_obj(fov.lonFull[myBeam.bmnum+1,r+1],
+                                             fov.latFull[myBeam.bmnum+1,r+1])
+                        x4,y4 = self.map_obj(fov.lonFull[myBeam.bmnum+1,r],
+                                             fov.latFull[myBeam.bmnum+1,r])
         
                         # save the polygon vertices
                         verts.append(((x1,y1),(x2,y2),(x3,y3),(x4,y4),(x1,y1)))
@@ -260,109 +265,26 @@ class sdvel_on_map(object):
                     self.map_obj.ax.add_collection(lcoll)
 	return
         
-
-    def griddedVel(self, rads, myData, fovs,lat_min=60,lat_max=90,dlat=1, range_minlim= 450, npnts_minlim=3,
-            half_dlat_offset=False):
+    def overlay_grids(self, lat_min=30, lat_max=90, dlat=1,
+		      zorder=5, half_dlat_offset=True):
+        """ Overlays grids cells on a map
     
-        '''
-        "half_dlat_offset=False" implements NINT[360 sin(theta)] at theta = 89, 88, ... colatitude
-        "half_dlat_offset=True" implements NINT[360 sin(theta)] at theta = 89.5, 88.5, ... colatitude
-        '''
-    
-        lats = [x + 0.5*dlat for x in range(lat_min,lat_max,dlat)]
-        if half_dlat_offset:
-            nlons = [round(360 * np.sin(np.deg2rad(90-lat))) for lat in lats]
-        else:
-            nlons = [round(360 * np.sin(np.deg2rad(90-(lat-0.5*dlat)))) for lat in lats]
-        dlons = [360./nn for nn in nlons]
-    
-        # lat and lon bins
-        lat_bins = [x for x in np.arange(lat_min,lat_max+dlat,dlat)]
-        lon_bins = []
-        lonss = []      # list of lists of lons
-        for i in range(len(lats)):
-            lon_tmp = [ item*dlons[i] for item in np.arange(0.5, nlons[i]+0.5) ]
-            lonss.append(lon_tmp)
-            lon_tmp = [ item*dlons[i] for item in np.arange(nlons[i]) ]
-            lon_tmp.append(360)
-            lon_bins.append(lon_tmp)
-    
-        df_lst = []
-        rads_lft = []
-        for i in range(len(myData)):
-            scan = myData[i]
-            if scan is None:
-                continue
-            fov = fovs[i]
-            # gridded parameters
-            gvels, glats, glons, gbmazms = [], [], [], []
-            for myBeam in scan:
-                if (len(myBeam.fit.slist)==0) or (myBeam is None): continue
-                for k in range(0,len(myBeam.fit.slist)):
-                    if myBeam.fit.slist[k] not in fov.gates:
-                        continue
-                    if (myBeam.fit.slist[k] * myBeam.prm.rsep) < range_minlim:
-                        continue
-                    if (myBeam.fit.gflg[k]):     # filter out ground scatter
-                        continue
-                    r = myBeam.fit.slist[k]
-                    ilon = fov.lonCenter[myBeam.bmnum,r]
-                    ilat = fov.latCenter[myBeam.bmnum,r]
-                    ivel = myBeam.fit.v[k]
-                    bmazm = myBeam.prm.bmazm
-                    indx_lat = np.digitize([ilat], lat_bins)
-                    glat = lats[indx_lat - 1]
-                    indx_lon = np.digitize([ilon % 360], lon_bins[indx_lat-1])
-                    glon = lonss[indx_lat-1][indx_lon-1]
-                    glats.append(glat)
-                    glons.append(glon)
-                    gvels.append(ivel)
-                    gbmazms.append(bmazm)
-    
-            rads_lft.append(rads[i])
-            columns = ['latc', 'lonc', 'vel_'+rads_lft[i], 'bmazm_'+rads_lft[i]]
-            df_tmp = pd.DataFrame(zip(glats, glons, gvels, gbmazms), columns=columns)
-            df_tmp = df_tmp.sort(['latc', 'lonc'])
-            df_tmp = df_tmp.groupby(['latc', 'lonc'], as_index=False).filter(lambda x: len(x)>= npnts_minlim)
-            #df_tmp = df_tmp.groupby(['latc', 'lonc', 'bmazm_'+rads_lft[i]], as_index=False).median()
-            df_tmp = df_tmp.groupby(['latc', 'lonc'], as_index=False).median()
-            df_lst.append(df_tmp)
-        if len(rads_lft) == 2:     # works for overlapped areas covered by a pair of radar
-            df = pd.merge(df_lst[0], df_lst[1], on=['latc', 'lonc'], how='inner')
-        elif len(rads_lft) == 1:   # works for a single radar
-            df = df_lst[0]
-        else:
-            df = None
-        return df
-
-
-
-    def overlay_grids(myMap,lat_min=60,lat_max=90,dlat=1,
-            llcrnrlat=None,urcrnrlat=None,half_dlat_offset=True,date_time = None):
+        Parameters
+        ----------
+        half_dlat_offset : bool
+            set to False implements NINT[360 sin(theta)] at theta = 89, 88, ... colatitude
+            set to True implements NINT[360 sin(theta)] at theta = 89.5, 88.5, ... colatitude
         """
-        Note
-        ----
-        half_dlat_offset=False implements NINT[360 sin(theta)] at theta = 89, 88, ... colatitude
-            and the center latitudes are 89.5 ,88.5, etc.
-        half_dlat_offset=True implements NINT[360 sin(theta)] at theta = 89.5, 88.5, ... colatitude
-    
-        """
-    
         import numpy as np
+	import sys
+	sys.path.append("../../data_preprocessing/")
+	from bin_data import grids
         import datetime as dt
-    
-        if not date_time:
-            date_time = dt.now()
-        if llcrnrlat==None or urcrnrlat==None:
-            lats = [x + 0.5*dlat for x in np.arange(lat_min,lat_max,dlat)]
-        else:
-            lat_min = np.floor(min(llcrnrlat, urcrnrlat))
-            lats = [x + 0.5*dlat for x in np.arange(lat_min,lat_max,dlat)]
-        if half_dlat_offset:
-            nlons = [round(360 * np.sin(np.deg2rad(90-lat))) for lat in lats]
-        else:
-            nlons = [round(360 * np.sin(np.deg2rad(90-(lat-0.5*dlat)))) for lat in lats]
-        dlons = [360./nn for nn in nlons]
+        from matplotlib.collections import PolyCollection
+
+        # Create grids
+	grds = grids(lat_min=lat_min, lat_max=lat_max,
+		     dlat=dlat, half_dlat_offset=half_dlat_offset)
     
         # flatting all lats and lons 
         lons_all = np.array([])
@@ -371,26 +293,125 @@ class sdvel_on_map(object):
         lats_all = np.array([])
         lats_all_N = np.array([])
         lats_all_S = np.array([])
-        for i in range(len(lats)):
-            lons = [ item*dlons[i] for item in np.arange(0.5, (nlons[i]+0.5)) ]
-            lons_E = [ item*dlons[i] for item in np.arange(1, (nlons[i]+1)) ]
-            lons_W = [ item*dlons[i] for item in np.arange(0, (nlons[i])) ]
+        for i in range(len(grds.center_lats)):
+            lons = [ item*grds.dlons[i] for item in np.arange(0.5, (grds.nlons[i]+0.5)) ]
+            lons_E = [ item*grds.dlons[i] for item in np.arange(1, (grds.nlons[i]+1)) ]
+            lons_W = [ item*grds.dlons[i] for item in np.arange(0, (grds.nlons[i])) ]
             lons_all = np.append(lons_all, lons)
             lons_all_E = np.append(lons_all_E, lons_E)
             lons_all_W = np.append(lons_all_W, lons_W)
-    
-            lats_all = np.append(lats_all, np.repeat(lats[i], nlons[i]))
-            lats_all_N = np.append(lats_all_N, np.repeat((lats[i]+dlat*0.5), nlons[i]))
-            lats_all_S = np.append(lats_all_S, np.repeat((lats[i]-dlat*0.5), nlons[i]))
+            lats_all = np.append(lats_all, np.repeat(grds.center_lats[i], grds.nlons[i]))
+            lats_all_N = np.append(lats_all_N,
+				   np.repeat((grds.center_lats[i]+grds.dlat*0.5), grds.nlons[i]))
+            lats_all_S = np.append(lats_all_S,
+				   np.repeat((grds.center_lats[i]-grds.dlat*0.5), grds.nlons[i]))
         # plot grid
-        x1,y1 = myMap(lons_all_W,lats_all_S)
-        x2,y2 = myMap(lons_all_W,lats_all_N)
-        x3,y3 = myMap(lons_all_E,lats_all_N)
-        x4,y4 = myMap(lons_all_E,lats_all_S)
+        x1,y1 = self.map_obj(lons_all_W,lats_all_S)
+        x2,y2 = self.map_obj(lons_all_W,lats_all_N)
+        x3,y3 = self.map_obj(lons_all_E,lats_all_N)
+        x4,y4 = self.map_obj(lons_all_E,lats_all_S)
         verts = zip(zip(x1,y1), zip(x2,y2), zip(x3,y3), zip(x4,y4))
-        pcoll = PolyCollection(np.array(verts), linewidth=0.07, facecolor='', zorder=5, clip_on=True)
-        #myMap.ax.add_collection(pcoll)
-        plt.gca().add_collection(pcoll)
+        pcoll = PolyCollection(np.array(verts), linewidth=0.07, 
+			       facecolor='', zorder=zorder, clip_on=True)
+        self.map_obj.ax.add_collection(pcoll)
+        #plt.gca().add_collection(pcoll)
+	return
+
+    def calc_gridded_losvel(self, lat_min=30, lat_max=90, dlat=1,
+			    srange_lim=[450, 4000],
+			    min_npnts=1,
+			    half_dlat_offset=False):
+    
+   	"""Calculates gridded LOS velocity 
+
+        Parameters
+        ----------
+        half_dlat_offset : bool
+            set to False implements NINT[360 sin(theta)] at
+		 theta = 89, 88, ... colatitude
+            set to True implements NINT[360 sin(theta)] at
+		 theta = 89.5, 88.5, ... colatitude
+        """
+        import numpy as np
+	import sys
+	sys.path.append("../../data_preprocessing/")
+	from bin_data import grids
+
+        # Create grids
+	grds = grids(lat_min=lat_min, lat_max=lat_max,
+		     dlat=dlat, half_dlat_offset=half_dlat_offset)
+
+        df_lst = []
+        rads_tmp = []
+        for i in range(len(self.data)):
+            myData = self.data[i]
+            if myData is None:
+                continue
+            fov = self.fovs[i]
+
+            # gridded parameters
+            gvels, glats, glons, gbmazms = [], [], [], []
+            for myBeam in myData:
+                if (len(myBeam.fit.slist)==0) or (myBeam is None):
+                    continue
+                for k in range(len(myBeam.fit.slist)):
+                    if myBeam.fit.slist[k] not in fov.gates:
+                        continue
+                    if (myBeam.fit.slist[k] * myBeam.prm.rsep < srange_lim[0]) or\
+                       (myBeam.fit.slist[k] * myBeam.prm.rsep > srange_lim[1]): 
+			continue
+#                    if (myBeam.fit.gflg[k]):     # filter out ground scatter
+#                        continue
+                    r = myBeam.fit.slist[k]
+                    ilon = fov.lonCenter[myBeam.bmnum,r]
+                    ilat = fov.latCenter[myBeam.bmnum,r]
+                    ivel = myBeam.fit.v[k]
+                    bmazm = myBeam.prm.bmazm
+
+                    # grid the data
+                    # grid latc
+                    indx_lat = np.digitize([ilat], grds.lat_bins)
+                    indx_lat = indx_lat[0]-1
+
+                    # NOTE: the following way avoids nan in lat
+		    try:
+			glat = grds.center_lats[index_lat]
+		    except IndexError:
+			glat = np.nan
+                    glats.append(glat)
+
+                    # grid lon
+                    # NOTE: the following way avoids nan in lonc
+                    try:
+			indx_lon = np.digitize([ilon % 360], grds.lon_bins[indx_lat])
+                        indx_lon = indx_lon[0]-1
+			glon = grds.center_lons[indx_lat][indx_lon]
+                    except IndexError:
+			glon = np.nan
+                    glons.append(glon)
+
+                    gvels.append(ivel)
+                    gbmazms.append(bmazm)
+    
+            rads_tmp.append(self.rads[i])
+            columns = ['latc', 'lonc', 'vel_'+self.rads[i], 'bmazm_'+self.rads[i]]
+            df_tmp = pd.DataFrame(zip(glats, glons, gvels, gbmazms), columns=columns)
+            df_tmp = df_tmp.sort(['latc', 'lonc'])
+            df_tmp = df_tmp.groupby(['latc', 'lonc'],
+                                    as_index=False).\
+                                    filter(lambda x: len(x)>= min_npnts)
+            #df_tmp = df_tmp.groupby(['latc', 'lonc', 'bmazm_'+rads_tmp[i]], as_index=False).median()
+            df_tmp = df_tmp.groupby(['latc', 'lonc'], as_index=False).median()
+            df_lst.append(df_tmp)
+#        if len(rads_tmp) == 2:     # works for overlapped areas covered by a pair of radar
+#            df = pd.merge(df_lst[0], df_lst[1], on=['latc', 'lonc'], how='inner')
+#        elif len(rads_tmp) == 1:   # works for a single radar
+#            df = df_lst[0]
+#        else:
+#            df = None
+        self.gridded_losvel = df_lst
+
+        return 
 
     def overlay_griddedVel(rads, scans, fovs, sites, myMap, myFig,
             coords='geo',cmap=None,norm=None, velscl=1000.0, dist=1000.0,
@@ -532,15 +553,15 @@ class sdvel_on_map(object):
             return [None, None]
 
     def overlay_2D_sdvel(stime, rads, rads_data, fovs, sites, myMap,
-            coords='geo',npnts_minlim=3,npntslim_lfit=5,
+            coords='geo',min_npnts=3,npntslim_lfit=5,
             interval=1*60,fileType='fitex',filtered=False,channel=None,
             lat_min=60,lat_max=90,dlat=1,half_dlat_offset=False,
-            cmap=None,norm=None, velscl=1000.0, dist=1000.0, min_range_lim=0, max_lfit_vel_lim=None,
+            cmap=None,norm=None, velscl=1000.0, dist=1000.0, min_srange_lim=0, max_lfit_vel_lim=None,
             png=False, overlay_gridded_losvel=False,
             gridded_losvel_only=False,all_lfitvel=False,hybrid_2Dvel=True,
             nazmslim_pr_grid=1, fitting_diagnostic_plot=True):
     
-        df_griddedvel = grid_sddata(rads,rads_data=rads_data, fovs=fovs,sites=sites, min_range_lim= min_range_lim, npnts_minlim=npnts_minlim,
+        df_griddedvel = grid_sddata(rads,rads_data=rads_data, fovs=fovs,sites=sites, min_srange_lim= min_srange_lim, min_npnts=min_npnts,
                 stime=stime,interval=interval,fileType=fileType,filtered=filtered,channel=channel,coords=coords,
                 lat_min=lat_min,lat_max=lat_max,dlat=dlat,half_dlat_offset=half_dlat_offset)
     
@@ -767,23 +788,25 @@ if __name__ == "__main__":
     stime = dt.datetime(2012, 11, 7, 4, 0)
     interval = 2*60
     coords = "mlt"
-    rads = ["cve", "cvw"]
+    rads = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
 
-#    # customized cmap
-#    cmj = matplotlib.cm.jet
-#    cmpr = matplotlib.cm.prism
-#    cmap = lcm([cmj(.95), cmj(.85), cmj(.79), cmpr(.142), cmj(.45), cmj(.3), cmj(.1)])
-#    scale=[0,150]
-#    bounds = np.round(np.linspace(scale[0], scale[1], 7))
-#    bounds = np.append(bounds, 50000.)
-#    color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
-#    cmap = mpl.colors.ListedColormap(color_list)
-#    bounds = [0., 8, 17, 25, 33, 42, 10000]
-    cmap = "jet"
+    # customized cmap
+    cmj = matplotlib.cm.jet
+    cmpr = matplotlib.cm.prism
+    cmap = lcm([cmj(.95), cmj(.85), cmj(.79), cmpr(.142), cmj(.45), cmj(.3), cmj(.1)])
+    scale=[0,150]
+    bounds = np.round(np.linspace(scale[0], scale[1], 7))
+    bounds = np.append(bounds, 50000.)
+
+    #color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
+    #cmap = lcm(color_list)
+    #bounds = [0., 8, 17, 25, 33, 42, 10000]
 
     # norm for color coding the velocity vectors and points
-    #norm = BoundaryNorm(bounds, cmap.N)
-    norm = None
+    norm = BoundaryNorm(bounds, cmap.N)
+
+    #cmap = "jet"
+    #norm = None
 
 
     # create an obj
@@ -800,13 +823,22 @@ if __name__ == "__main__":
     obj.overlay_raw_data(param="velocity",
 			 gsct=0, fill=True,
 			 velscl=1.,
-			 slist_lim=[0, 70],
+			 srange_lim=[450, 3000],
 			 zorder=4,alpha=1,
-			 cmap=cmap,norm=None)
+			 cmap=cmap,norm=norm)
     # Overlay Radar Names
     obj.overlay_radName()
 
     # Overlay Radar FoVs
-    obj.overlay_radFov(maxGate=70)
+    #obj.overlay_radFov(maxGate=50)
 
+    # Overlay Grids
+    obj.overlay_grids(lat_min=30, lat_max=90, dlat=1,
+		      zorder=10, half_dlat_offset=True)
+
+    # Calculate gridded LOS velocity
+    obj.calc_gridded_losvel(lat_min=30, lat_max=90, dlat=1,
+			    srange_lim=[450, 4000],
+			    min_npnts=1,
+			    half_dlat_offset=False)
 
