@@ -146,8 +146,7 @@ class sdvel_on_map(object):
 
     def overlay_raw_data(self, param="velocity",
 			   gsct=0, fill=True,
-			   velscl=1.,
-			   srange_lim=[450, 4000],
+			   velscl=1000., srange_lim=[450, 4000],
 			   zorder=4,alpha=1,
 			   cmap=None,norm=None):
 
@@ -155,8 +154,10 @@ class sdvel_on_map(object):
 
         from davitpy import pydarn
 	import numpy as np
-        from matplotlib.collections import PolyCollection,LineCollection
-    
+	import math
+        from matplotlib.collections import PolyCollection, LineCollection
+        
+        losvel_mappable = None
         for i in range(len(self.data)):
             if self.data[i] is None:
                 continue
@@ -224,13 +225,13 @@ class sdvel_on_map(object):
 					   facecolors='.3',linewidths=0,
 					   zorder=zorder+1,alpha=alpha)
                         self.map_obj.ax.add_collection(x, autolim=True)
-                    pcoll = PolyCollection(np.array(verts)[inx],
+                    coll = PolyCollection(np.array(verts)[inx],
 					   edgecolors='face',linewidths=0,
 					   closed=False,zorder=zorder,
 					   alpha=alpha, cmap=cmap,norm=norm)
                     #set color array to intensities
-                    pcoll.set_array(np.array(intensities)[inx])
-                    self.map_obj.ax.add_collection(pcoll, autolim=True)
+                    coll.set_array(np.array(intensities)[inx])
+                    self.map_obj.ax.add_collection(coll, autolim=True)
             else:
                 #if we have data
                 if(verts != [[],[]]):
@@ -251,7 +252,7 @@ class sdvel_on_map(object):
                     ccoll = self.map_obj.ax.scatter(np.array(verts[0])[inx],
 						    np.array(verts[1])[inx],
 						    s=3.0,zorder=zorder+1,marker='o',
-						    c=np.abs(np.array(intensities)[inx]),
+						    c=np.array(intensities)[inx],
 						    linewidths=.5, edgecolors='face',
 						    cmap=cmap,norm=norm)
         
@@ -259,10 +260,13 @@ class sdvel_on_map(object):
                     self.map_obj.ax.add_collection(ccoll)
 
                     #plot the velocity vectors
-                    lcoll = LineCollection(np.array(lines)[inx],linewidths=.5,
+                    coll = LineCollection(np.array(lines)[inx],linewidths=.5,
 					   zorder=zorder+2,cmap=cmap,norm=norm)
-                    lcoll.set_array(np.abs(np.array(intensities)[inx]))
-                    self.map_obj.ax.add_collection(lcoll)
+                    coll.set_array(np.array(intensities)[inx])
+                    self.map_obj.ax.add_collection(coll)
+            if coll:
+                losvel_mappable = coll
+        self.losvel_mappable=losvel_mappable
 	return
         
     def overlay_grids(self, lat_min=30, lat_max=90, dlat=1,
@@ -311,10 +315,11 @@ class sdvel_on_map(object):
         x3,y3 = self.map_obj(lons_all_E,lats_all_N)
         x4,y4 = self.map_obj(lons_all_E,lats_all_S)
         verts = zip(zip(x1,y1), zip(x2,y2), zip(x3,y3), zip(x4,y4))
-        pcoll = PolyCollection(np.array(verts), linewidth=0.07, 
-			       facecolor='', zorder=zorder, clip_on=True)
-        self.map_obj.ax.add_collection(pcoll)
-        #plt.gca().add_collection(pcoll)
+        coll = PolyCollection(np.array(verts), linewidth=0.07, 
+			       facecolor='', edgecolor='k', zorder=zorder,
+			       clip_on=True)
+        self.map_obj.ax.add_collection(coll)
+
 	return
 
     def calc_gridded_losvel(self, lat_min=30, lat_max=90, dlat=1,
@@ -333,6 +338,7 @@ class sdvel_on_map(object):
 		 theta = 89.5, 88.5, ... colatitude
         """
         import numpy as np
+        import pandas as pd 
 	import sys
 	sys.path.append("../../data_preprocessing/")
 	from bin_data import grids
@@ -342,12 +348,13 @@ class sdvel_on_map(object):
 		     dlat=dlat, half_dlat_offset=half_dlat_offset)
 
         df_lst = []
-        rads_tmp = []
         for i in range(len(self.data)):
             myData = self.data[i]
             if myData is None:
+		df_lst.append(None)
                 continue
             fov = self.fovs[i]
+            site = self.sites[i]
 
             # gridded parameters
             gvels, glats, glons, gbmazms = [], [], [], []
@@ -375,7 +382,7 @@ class sdvel_on_map(object):
 
                     # NOTE: the following way avoids nan in lat
 		    try:
-			glat = grds.center_lats[index_lat]
+			glat = grds.center_lats[indx_lat]
 		    except IndexError:
 			glat = np.nan
                     glats.append(glat)
@@ -393,425 +400,416 @@ class sdvel_on_map(object):
                     gvels.append(ivel)
                     gbmazms.append(bmazm)
     
-            rads_tmp.append(self.rads[i])
-            columns = ['latc', 'lonc', 'vel_'+self.rads[i], 'bmazm_'+self.rads[i]]
-            df_tmp = pd.DataFrame(zip(glats, glons, gvels, gbmazms), columns=columns)
-            df_tmp = df_tmp.sort(['latc', 'lonc'])
+            #columns = ['latc', 'lonc', 'vel_'+self.rads[i], 'bmazm_'+self.rads[i]]
+            #columns = ['latc', 'lonc', 'vel', 'bmazm']
+            columns = ['latc', 'lonc', 'vel', 'bmazm', 'geolat_rad', 'geolon_rad']
+            lat_rad= [site.geolat] * len(glats)
+            lon_rad= [site.geolon] * len(glons)
+            df_tmp = pd.DataFrame(zip(glats, glons, gvels, gbmazms, lat_rad, lon_rad), columns=columns)
+            df_tmp = df_tmp.sort_values(['latc', 'lonc'])
             df_tmp = df_tmp.groupby(['latc', 'lonc'],
                                     as_index=False).\
                                     filter(lambda x: len(x)>= min_npnts)
-            #df_tmp = df_tmp.groupby(['latc', 'lonc', 'bmazm_'+rads_tmp[i]], as_index=False).median()
             df_tmp = df_tmp.groupby(['latc', 'lonc'], as_index=False).median()
             df_lst.append(df_tmp)
-#        if len(rads_tmp) == 2:     # works for overlapped areas covered by a pair of radar
-#            df = pd.merge(df_lst[0], df_lst[1], on=['latc', 'lonc'], how='inner')
-#        elif len(rads_tmp) == 1:   # works for a single radar
-#            df = df_lst[0]
-#        else:
-#            df = None
-        self.gridded_losvel = df_lst
+
+	#self.gridded_losvel = pd.concat(df_lst)
+	self.gridded_losvel = df_lst
 
         return 
 
-    def overlay_griddedVel(rads, scans, fovs, sites, myMap, myFig,
-            coords='geo',cmap=None,norm=None, velscl=1000.0, dist=1000.0,
-            lat_min=60,lat_max=90,dlat=1,half_dlat_offset=False,
-            show_gridded_losvel=False, show_overlapped_gridded_losvel_only=False):
+    def overlay_gridded_losvel(self, vel_lim=[-1000, 1000], zorder=10,
+			       cmap=None, norm=None, velscl=1000.):
+
+        """ Overlays gridded LOS velocities on a map"""
     
+        from matplotlib.collections import LineCollection
         verts = [[], []]
         intensities = []
         lines = []
-        if show_gridded_losvel:
-            if  show_overlapped_gridded_losvel_only: 
-                df = griddedVel(rads, scans, fovs)
-                for i in range(len(rads)): 
-                    site = sites[i]
-                    lon_rad = site.geolon
-                    lat_rad = site.geolat
-                    xo,yo = myMap(lon_rad, lat_rad, coords='geo')
-                    xp,yp = myMap(0, 90, coords='geo')
-                    theta = np.arctan2(yp-yo,xp-xo)
-                    theta = theta - np.deg2rad(df['bmazm_'+rads[i]].tolist())
-    
-                    x1,y1 = myMap(df['lonc'].tolist(), df['latc'].tolist())
-                    verts[0].extend(x1)
-                    verts[1].extend(y1)
-                    x1 = np.array(x1)
-                    y1 = np.array(y1)
-                    x2 = x1+np.array(df['vel_'+rads[i]].tolist())/velscl*(-1.0)*np.cos(theta)*dist
-                    y2 = y1+np.array(df['vel_'+rads[i]].tolist())/velscl*(-1.0)*np.sin(theta)*dist
-    
-                    lines.extend(zip(zip(x1,y1),zip(x2,y2)))
-                    #save the param to use as a color scale
-                    intensities.extend(df['vel_'+rads[i]].tolist())
-    
-    
-                #do the actual overlay
-                #plot the i-s as filled circles
-                ccoll = myFig.gca().scatter(np.array(verts[0]),np.array(verts[1]),
-                                s=3.0,zorder=10,marker='o', c=np.abs(np.array(intensities)),
-                                #s=3.0,zorder=10,marker='o', color='k',
-                                linewidths=.5, edgecolors='face',cmap=cmap,norm=norm)
-                                #linewidths=.5, edgecolors='face')
-                myFig.gca().add_collection(ccoll)
-                #plot the velocity vectors
-                lcoll = LineCollection(np.array(lines),linewidths=0.5,zorder=12,cmap=cmap,norm=norm)
-                lcoll.set_array(np.abs(np.array(intensities)))
-                myFig.gca().add_collection(lcoll)
-            else:
-                for i in range(len(rads)):
-                    df = griddedVel([rads[i]], [scans[i]], [fovs[i]])
-                    site = sites[i]
-                    lon_rad = site.geolon
-                    lat_rad = site.geolat
-                    xo,yo = myMap(lon_rad, lat_rad, coords='geo')
-                    xp,yp = myMap(0, 90, coords='geo')
-                    theta = np.arctan2(yp-yo,xp-xo)
-                    theta = theta - np.deg2rad(df['bmazm_'+rads[i]].tolist())
-    
-                    x1,y1 = myMap(df['lonc'].tolist(), df['latc'].tolist())
-                    verts[0].extend(x1)
-                    verts[1].extend(y1)
-                    x1 = np.array(x1)
-                    y1 = np.array(y1)
-    
-                    x2 = x1+np.array(df['vel_'+rads[i]].tolist())/velscl*(-1.0)*np.cos(theta)*dist
-                    y2 = y1+np.array(df['vel_'+rads[i]].tolist())/velscl*(-1.0)*np.sin(theta)*dist
-    
-                    lines.extend(zip(zip(x1,y1),zip(x2,y2)))
-                    #save the param to use as a color scale
-                    intensities.extend(df['vel_'+rads[i]].tolist())
-    
-                #do the actual overlay
-                #plot the i-s as filled circles
-                ccoll = myFig.gca().scatter(np.array(verts[0]),np.array(verts[1]),
-                                #s=.1*np.array(intensities[1])[inx],zorder=10,marker='o',
-                                s=3.0,zorder=10,marker='o', c=np.abs(np.array(intensities)),
-                                linewidths=.5, edgecolors='face',cmap=cmap,norm=norm)
-    
-                myFig.gca().add_collection(ccoll)
-                #plot the velocity vectors
-                lcoll = LineCollection(np.array(lines),linewidths=0.5,zorder=12,cmap=cmap,norm=norm)
-                lcoll.set_array(np.abs(np.array(intensities)))
-                myFig.gca().add_collection(lcoll)
-        # resolved 2D velocity 
-        thetas = []   # the collection of angles of two pair radars' gridded LOS vel.
-        df = griddedVel(rads, scans, fovs)
-        if (df is not None):
-            dfg = df.groupby(['latc', 'lonc'], as_index=False).filter(lambda x: len(x) == 2)
-        if (df is not None) and (not dfg.empty):
-            for i in range(len(rads)):
-                site = sites[i]
-                lon_rad = site.geolon
-                lat_rad = site.geolat
-                xo,yo = myMap(lon_rad, lat_rad, coords='geo')
-                xp,yp = myMap(0, 90, coords='geo')
-                theta = np.arctan2(yp-yo,xp-xo)
-                theta = theta - np.deg2rad(df['bmazm_'+rads[i]].tolist())
-                thetas.append(theta)
-    
-            verts_r = [[], []]
-            vel1 = df['vel_'+rads[0]].as_matrix()
-            vel2 = df['vel_'+rads[1]].as_matrix()
-            vel1_theta = (np.sign(vel1)+1)/2 * np.pi + thetas[0]
-            vel2_theta = (np.sign(vel2)+1)/2 * np.pi + thetas[1]
-            dtheta = vel2_theta - vel1_theta   # the angle between two gridded LOS vel.
-            aa = np.cos(dtheta)
-            bb = np.sin(dtheta)
-            alpha1 = np.arctan((-aa + (np.abs(vel2)*1.0)/(np.abs(vel1))) / bb)
-            alpha1[np.where(alpha1 > np.pi/2)] += np.pi
-            #theta_r = theta[0] - alpha1
-            theta_r = vel1_theta + alpha1
-            #vels_r = np.true_divide(vel1, np.cos(alpha1))
-            vels_r = vel1 / np.cos(alpha1)
-            vels_r = np.abs(vels_r)
-    
-            xr1,yr1 = myMap(df['lonc'].tolist(), df['latc'].tolist())
-            verts_r[0].extend(xr1)
-            verts_r[1].extend(yr1)
-            xr1 = np.array(xr1)
-            yr1 = np.array(yr1)
-    
-            xr2 = xr1+vels_r/velscl*(+1.0)*np.cos(theta_r)*dist
-            yr2 = yr1+vels_r/velscl*(+1.0)*np.sin(theta_r)*dist
-    
-            lines_r = zip(zip(xr1,yr1),zip(xr2,yr2))
-            #save the param to use as a color scale
-            intensities_r = vels_r.tolist()
-            ccoll_r = myFig.gca().scatter(np.array(verts_r[0]),np.array(verts_r[1]),
-                            s=3.0,zorder=11,marker='*', c=np.array(intensities_r),
-                            linewidths=.5, edgecolors='face',cmap=cmap,norm=norm)
-            #set color array to intensities
-            lcoll_r = LineCollection(np.array(lines_r),linewidths=1.0,zorder=12,cmap=cmap,norm=norm)
-            lcoll_r.set_array(np.array(intensities_r))
-            myFig.gca().add_collection(ccoll_r)
-            myFig.gca().add_collection(lcoll_r)
-    
-            return intensities_r,lcoll_r
-            #return intensities,lcoll
-        else:
-            return [None, None]
+        gridded_losvel_mappable=None
+	for i in range(len(self.rads)): 
+	    df = self.gridded_losvel[i]
+	    try:
+		#df = df.loc[(df['vel_'+self.rads[i]] >= vel_lim[0]) &\
+		#	    (df['vel_'+self.rads[i]] <= vel_lim[1]), :]
+		df = df.loc[(df['vel'] >= vel_lim[0]) &\
+			    (df['vel'] <= vel_lim[1]), :]
+	    except:
+		continue
+	    if df.shape[0] == 0:
+		continue
+	    site = self.sites[i]
+	    lon_rad = site.geolon
+	    lat_rad = site.geolat
+	    xo,yo = self.map_obj(lon_rad, lat_rad, coords='geo')
+	    xp,yp = self.map_obj(0, 90, coords='geo')
+	    theta = np.arctan2(yp-yo,xp-xo)
+	    #theta = theta - np.deg2rad(df['bmazm_'+self.rads[i]].tolist())
+	    theta = theta - np.deg2rad(df['bmazm'].tolist())
+	    x1,y1 = self.map_obj(df['lonc'].tolist(), df['latc'].tolist())
+	    verts[0].extend(x1)
+	    verts[1].extend(y1)
+	    x1 = np.array(x1)
+	    y1 = np.array(y1)
+	    #x2 = x1+np.array(df['vel_'+self.rads[i]].tolist())*velscl*(-1.0)*np.cos(theta)
+	    #y2 = y1+np.array(df['vel_'+self.rads[i]].tolist())*velscl*(-1.0)*np.sin(theta)
+	    x2 = x1+np.array(df['vel'].tolist())*velscl*(-1.0)*np.cos(theta)
+	    y2 = y1+np.array(df['vel'].tolist())*velscl*(-1.0)*np.sin(theta)
+	    lines.extend(zip(zip(x1,y1),zip(x2,y2)))
 
-    def overlay_2D_sdvel(stime, rads, rads_data, fovs, sites, myMap,
-            coords='geo',min_npnts=3,npntslim_lfit=5,
-            interval=1*60,fileType='fitex',filtered=False,channel=None,
-            lat_min=60,lat_max=90,dlat=1,half_dlat_offset=False,
-            cmap=None,norm=None, velscl=1000.0, dist=1000.0, min_srange_lim=0, max_lfit_vel_lim=None,
-            png=False, overlay_gridded_losvel=False,
-            gridded_losvel_only=False,all_lfitvel=False,hybrid_2Dvel=True,
-            nazmslim_pr_grid=1, fitting_diagnostic_plot=True):
+	    #save the param to use as a color scale
+	    #intensities.extend(df['vel_'+self.rads[i]].tolist())
+	    intensities.extend(df['vel'].tolist())
+
+	    #do the actual overlay
+            #plot the i-s as filled circles
+            ccoll = self.map_obj.ax.scatter(np.array(verts[0]),np.array(verts[1]),
+					    s=3.0,zorder=zorder,marker='o',
+					    c=np.array(intensities),
+					    linewidths=.5, edgecolors='face',
+					    cmap=cmap,norm=norm)
+					    #linewidths=.5, edgecolors='face')
+	    #self.map_obj.ax.add_collection(ccoll)
+
+	    #plot the velocity vectors
+	    coll = LineCollection(np.array(lines),linewidths=0.5,
+				   zorder=zorder, cmap=cmap,norm=norm)
+	    coll.set_array(np.array(intensities))
+	    self.map_obj.ax.add_collection(coll)
+            if coll:
+                gridded_losvel_mappable=coll
+        self.gridded_losvel_mappable=gridded_losvel_mappable
+#        # resolved 2D velocity 
+#        thetas = []   # the collection of angles of two pair radars' gridded LOS vel.
+#        df = griddedVel(rads, scans, fovs)
+#        if (df is not None):
+#            dfg = df.groupby(['latc', 'lonc'], as_index=False).filter(lambda x: len(x) == 2)
+#        if (df is not None) and (not dfg.empty):
+#            for i in range(len(rads)):
+#                site = sites[i]
+#                lon_rad = site.geolon
+#                lat_rad = site.geolat
+#                xo,yo = self.map_obj(lon_rad, lat_rad, coords='geo')
+#                xp,yp = self.map_obj(0, 90, coords='geo')
+#                theta = np.arctan2(yp-yo,xp-xo)
+#                #theta = theta - np.deg2rad(df['bmazm_'+rads[i]].tolist())
+#                theta = theta - np.deg2rad(df['bmazm'].tolist())
+#                thetas.append(theta)
+#    
+#            verts_r = [[], []]
+#            #vel1 = df['vel_'+rads[0]].as_matrix()
+#            #vel2 = df['vel_'+rads[1]].as_matrix()
+#            vel1 = df['vel'].as_matrix()
+#            vel2 = df['vel'].as_matrix()
+#            vel1_theta = (np.sign(vel1)+1)/2 * np.pi + thetas[0]
+#            vel2_theta = (np.sign(vel2)+1)/2 * np.pi + thetas[1]
+#            dtheta = vel2_theta - vel1_theta   # the angle between two gridded LOS vel.
+#            aa = np.cos(dtheta)
+#            bb = np.sin(dtheta)
+#            alpha1 = np.arctan((-aa + (np.abs(vel2)*1.0)/(np.abs(vel1))) / bb)
+#            alpha1[np.where(alpha1 > np.pi/2)] += np.pi
+#            #theta_r = theta[0] - alpha1
+#            theta_r = vel1_theta + alpha1
+#            #vels_r = np.true_divide(vel1, np.cos(alpha1))
+#            vels_r = vel1 / np.cos(alpha1)
+#            vels_r = np.abs(vels_r)
+#    
+#            xr1,yr1 = self.map_obj(df['lonc'].tolist(), df['latc'].tolist())
+#            verts_r[0].extend(xr1)
+#            verts_r[1].extend(yr1)
+#            xr1 = np.array(xr1)
+#            yr1 = np.array(yr1)
+#    
+#            xr2 = xr1+vels_r/velscl*(+1.0)*np.cos(theta_r)*dist
+#            yr2 = yr1+vels_r/velscl*(+1.0)*np.sin(theta_r)*dist
+#    
+#            lines_r = zip(zip(xr1,yr1),zip(xr2,yr2))
+#            #save the param to use as a color scale
+#            intensities_r = vels_r.tolist()
+#            ccoll_r = myFig.gca().scatter(np.array(verts_r[0]),np.array(verts_r[1]),
+#                            s=3.0,zorder=11,marker='*', c=np.array(intensities_r),
+#                            linewidths=.5, edgecolors='face',cmap=cmap,norm=norm)
+#            #set color array to intensities
+#            lcoll_r = LineCollection(np.array(lines_r),linewidths=1.0,zorder=12,cmap=cmap,norm=norm)
+#            lcoll_r.set_array(np.array(intensities_r))
+#            myFig.gca().add_collection(ccoll_r)
+#            myFig.gca().add_collection(lcoll_r)
+#    
+#            return intensities_r,lcoll_r
+#            #return intensities,lcoll
+#        else:
+#            return [None, None]
+	return
+
+    def overlay_2D_sdvel(self, npntslim_lfit=5,
+                         rad_groups=[["wal", "bks"], ["fhe", "fhw"],
+                                     ["cve", "cvw"], ["ade", "adw"]],
+			 cmap=None,norm=None, velscl=1000.0, 
+			 max_lfit_vel_lim=None,
+                         lat_range=[53., 63],
+			 all_lfitvel=False, hybrid_2Dvel=False,
+			 nazmslim_pr_grid=1, fitting_diagnostic_plot=False):
+        """Calculates the 2-D flow vectors and overlay them on a map"""
     
-        df_griddedvel = grid_sddata(rads,rads_data=rads_data, fovs=fovs,sites=sites, min_srange_lim= min_srange_lim, min_npnts=min_npnts,
-                stime=stime,interval=interval,fileType=fileType,filtered=filtered,channel=channel,coords=coords,
-                lat_min=lat_min,lat_max=lat_max,dlat=dlat,half_dlat_offset=half_dlat_offset)
-    
-        if df_griddedvel is not None:
-    
-            # show the supdardarn gridded los velocities
-            if overlay_gridded_losvel:
+        from funcs import sdvel_lfit
+        import pandas as pd
+        import numpy as np
+        from matplotlib.collections import LineCollection
+
+        lfitvel_mappable = None
+        # Do L-shell fitting for each radar groups
+        for rds in rad_groups:
+            try:
+                indx = [self.rads.index(x) for x in rds \
+                        if self.gridded_losvel[self.rads.index(x)] is not None]
+                df_griddedvel = pd.concat([self.gridded_losvel[x] for x in indx], 
+                                          keys=[self.rads[x] for x in indx])
+            except ValueError:
+                continue
+            df_lfitvel = sdvel_lfit(self.map_obj, df_griddedvel,
+                                    npntslim_lfit=npntslim_lfit)
+
+            if all_lfitvel and (df_lfitvel is not None):
+
+                # filter out the lfit velocity that exceedes max_lfit_vel_lim
+                if max_lfit_vel_lim is not None:
+                    df_lfitvel = df_lfitvel.where(df_lfitvel.lfit_vel <\
+                                                  max_lfit_vel_lim).dropna()
+
                 verts = [[], []]
                 intensities = []
                 lines = []
-                xp, yp = myMap(0, 90, coords='geo')    # geographic pole position on the map
-                xo, yo = myMap(df_griddedvel.geolon_rad.tolist(), df_griddedvel.geolat_rad.tolist(), coords='geo')
+                xp, yp = self.map_obj(0, 90)    # North pole in the self.map_obj.coords system
+                xo, yo = self.map_obj(df_lfitvel.lonc.tolist(),
+                                      df_lfitvel.latc.tolist())
                 the0 = np.arctan2(yp-np.array(yo),xp-np.array(xo))
-                # NOTE: In the angle calculation below, the better way is to implement the spherical trigonometry.
-                theta = the0 - np.deg2rad(df_griddedvel['bmazm'].tolist())
-                x1,y1 = myMap(df_griddedvel['lonc'].tolist(), df_griddedvel['latc'].tolist())
+                theta = the0 - np.deg2rad(df_lfitvel['lfit_azm'].tolist())
+                x1,y1 = self.map_obj(df_lfitvel['lonc'].tolist(), df_lfitvel['latc'].tolist())
                 verts[0].extend(x1)
                 verts[1].extend(y1)
                 x1 = np.array(x1)
                 y1 = np.array(y1)
-    
-                x2 = x1+np.array(df_griddedvel['vel'].tolist())/velscl*(-1.0)*np.cos(theta)*dist
-                y2 = y1+np.array(df_griddedvel['vel'].tolist())/velscl*(-1.0)*np.sin(theta)*dist
-    
+
+                x2 = x1+np.array(df_lfitvel['lfit_vel'].tolist())*velscl*(-1.0)*np.cos(theta)
+                y2 = y1+np.array(df_lfitvel['lfit_vel'].tolist())*velscl*(-1.0)*np.sin(theta)
+
                 lines.extend(zip(zip(x1,y1),zip(x2,y2)))
                 #save the param to use as a color scale
-                intensities.extend(df_griddedvel['vel'].tolist())
-    
+                intensities.extend(df_lfitvel['lfit_vel'].tolist())
+
                 #do the actual overlay
-                ccoll = myMap.ax.scatter(np.array(verts[0]),np.array(verts[1]),
-                                #s=3.0,zorder=10,marker='o', c=np.abs(np.array(intensities)),
-                                s=3.0,zorder=10,marker='o', color='grey',
+                #plot the i-s as filled circles
+                ccoll = self.ax.scatter(np.array(verts[0]),np.array(verts[1]),
+                                #s=.1*np.array(intensities[1])[inx],zorder=10,marker='o',
+                                s=3.0,zorder=10,marker='o', c=np.abs(np.array(intensities)),
                                 linewidths=.5, edgecolors='face',cmap=cmap,norm=norm)
-    
-                lcoll = LineCollection(np.array(lines),linewidths=0.5,zorder=12,color='grey', cmap=cmap,norm=norm)
-                #lcoll = LineCollection(np.array(lines),linewidths=0.5,zorder=12,cmap=cmap,norm=norm)
-                #lcoll.set_array(np.abs(np.array(intensities)))
-                if gridded_losvel_only:
-                    ccoll_grey = myMap.ax.scatter(np.array(verts[0]),np.array(verts[1]),
-                                    s=3.0,zorder=10,marker='o', color='grey',
-                                    linewidths=.5, edgecolors='face',cmap=cmap,norm=norm)
-                    lcoll_grey = LineCollection(np.array(lines),linewidths=0.5,zorder=12,color='grey', cmap=cmap,norm=norm)
-                    myMap.ax.add_collection(ccoll_grey)
-                    myMap.ax.add_collection(lcoll_grey)
-                else:
-                    myMap.ax.add_collection(ccoll)
-                    myMap.ax.add_collection(lcoll)
-    
-            # show the supdardarn gridded los velocities only if gridded_losvel_only=True
-            # this way fitted velocites will not be shown
-            if not gridded_losvel_only:
-                df_lfitvel =  sdvel_lfit(myMap, df_griddedvel, npntslim_lfit=npntslim_lfit)
-    
-                radars = [rd for rd in df_lfitvel.index.levels[0]]
-                color_list = ['r', 'b', 'g', 'c', 'm', 'k']
-    
-                if all_lfitvel and (df_lfitvel is not None):
-    
-                    # filter out the lfit velocity that exceedes max_lfit_vel_lim
-                    if max_lfit_vel_lim is not None:
-                        df_lfitvel = df_lfitvel.where(df_lfitvel.lfit_vel < max_lfit_vel_lim).dropna()
-    
-                    verts = [[], []]
-                    intensities = []
-                    lines = []
-                    xp, yp = myMap(0, 90)    # North pole in the myMap.coords system
-                    xo, yo = myMap(df_lfitvel.lonc.tolist(), df_lfitvel.latc.tolist())
-                    the0 = np.arctan2(yp-np.array(yo),xp-np.array(xo))
-                    theta = the0 - np.deg2rad(df_lfitvel['lfit_azm'].tolist())
-                    x1,y1 = myMap(df_lfitvel['lonc'].tolist(), df_lfitvel['latc'].tolist())
-                    verts[0].extend(x1)
-                    verts[1].extend(y1)
-                    x1 = np.array(x1)
-                    y1 = np.array(y1)
-    
-                    x2 = x1+np.array(df_lfitvel['lfit_vel'].tolist())/velscl*(-1.0)*np.cos(theta)*dist
-                    y2 = y1+np.array(df_lfitvel['lfit_vel'].tolist())/velscl*(-1.0)*np.sin(theta)*dist
-    
-                    lines.extend(zip(zip(x1,y1),zip(x2,y2)))
-                    #save the param to use as a color scale
-                    intensities.extend(df_lfitvel['lfit_vel'].tolist())
-    
-                    #do the actual overlay
-                    #plot the i-s as filled circles
-                    ccoll = myMap.ax.scatter(np.array(verts[0]),np.array(verts[1]),
-                                    #s=.1*np.array(intensities[1])[inx],zorder=10,marker='o',
-                                    s=3.0,zorder=10,marker='o', c=np.abs(np.array(intensities)),
-                                    linewidths=.5, edgecolors='face',cmap=cmap,norm=norm)
-    
-                    myMap.ax.add_collection(ccoll)
-                    #plot the velocity vectors
-                    lcoll = LineCollection(np.array(lines),linewidths=0.5,zorder=12,cmap=cmap,norm=norm)
-                    lcoll.set_array(np.abs(np.array(intensities)))
-                    myMap.ax.add_collection(lcoll)
-                df1_griddedvel = df_griddedvel.groupby(['latc', 'lonc'], as_index=False).filter(lambda x: len(x)==1)
-                df2_griddedvel = df_griddedvel.groupby(['latc', 'lonc'], as_index=False).filter(lambda x: len(x)==2)
-                df1_lfitvel = df_lfitvel.groupby(['latc', 'lonc']).filter(lambda x: len(x)==1)
-                if hybrid_2Dvel:
-                    verts = [[], []]
-                    intensities = []
-                    lines = []
-                    if nazmslim_pr_grid < 2:
-                        # for df1_lfitvel
-                        if (not df1_lfitvel.empty):
-                            xp, yp = myMap(0, 90)    # geomagnetic pole position on the map
-                            xo, yo = myMap(df1_lfitvel.lonc.tolist(), df1_lfitvel.latc.tolist())
-                            the0 = np.arctan2(yp-np.array(yo),xp-np.array(xo))
-                            theta = the0 - np.deg2rad(df1_lfitvel['lfit_azm'].tolist())
-                            x1,y1 = myMap(df1_lfitvel['lonc'].tolist(), df1_lfitvel['latc'].tolist())
-                            verts[0].extend(x1)
-                            verts[1].extend(y1)
-                            x1 = np.array(x1)
-                            y1 = np.array(y1)
-                            x2 = x1+np.array(df1_lfitvel['lfit_vel'].tolist())/velscl*(-1.0)*np.cos(theta)*dist
-                            y2 = y1+np.array(df1_lfitvel['lfit_vel'].tolist())/velscl*(-1.0)*np.sin(theta)*dist
-    
-                            lines.extend(zip(zip(x1,y1),zip(x2,y2)))
-                            #save the param to use as a color scale
-                            intensities.extend(df1_lfitvel['lfit_vel'].tolist())
-    
-                    # for df2_merged
-                    df2_merged = merge_2losvecs(myMap, df2_griddedvel)
-                    if df2_merged is not None:
-                        xr1,yr1 = myMap(df2_merged['lonc'].tolist(), df2_merged['latc'].tolist())
-                        verts[0].extend(xr1)
-                        verts[1].extend(yr1)
-                        xr1 = np.array(xr1)
-                        yr1 = np.array(yr1)
-                        vel_r = df2_merged['vel_2d'].as_matrix()
-                        theta_r = np.deg2rad(df2_merged['theta_2d'].as_matrix())
-                        xr2 = xr1+vel_r/velscl*(+1.0)*np.cos(theta_r)*dist
-                        yr2 = yr1+vel_r/velscl*(+1.0)*np.sin(theta_r)*dist
-    
-                        lines.extend(zip(zip(xr1,yr1),zip(xr2,yr2)))
-                        #save the param to use as a color scale intensities.extend(vel_r.tolist())
-                        intensities.extend(df2_merged['vel_2d'].tolist())
-    
-                    # for dfge3_lfitvel
-                    dfge3_griddedvel = df_griddedvel.groupby(['latc', 'lonc'], as_index=False).filter(lambda x: len(x)>=3)
-                    dfgge3 = dfge3_griddedvel.groupby(['latc', 'lonc'], as_index=False)
-                    groups_lfit=[]
-                    for indx, group in dfgge3:
-                        group_lfit = sdvel_lfit(myMap, group, npntslim_lfit=3)
-                        if group_lfit is not None:
-                            groups_lfit.append(group_lfit)
-                    if (not groups_lfit==[]):
-                        dfge3_lfitvel = pd.concat(groups_lfit)
-                        xp, yp = myMap(0, 90)    # geomagnetic pole position on the map
-                        xo, yo = myMap(dfge3_lfitvel.lonc.tolist(), dfge3_lfitvel.latc.tolist())
+
+                self.ax.add_collection(ccoll)
+                #plot the velocity vectors
+                lcoll = LineCollection(np.array(lines),linewidths=0.5,zorder=12,cmap=cmap,norm=norm)
+                lcoll.set_array(np.abs(np.array(intensities)))
+                self.ax.add_collection(lcoll)
+
+            # Seperate overlaped gridded los vel from non-overlaped ones
+            df1_griddedvel = df_griddedvel.groupby(['latc', 'lonc'], as_index=False).\
+                                           filter(lambda x: len(x)==1)
+            df2_griddedvel = df_griddedvel.groupby(['latc', 'lonc'], as_index=False).\
+                                           filter(lambda x: len(x)==2)
+            df1_lfitvel = df_lfitvel.groupby(['latc', 'lonc']).\
+                                     filter(lambda x: len(x)==1)
+            if hybrid_2Dvel:
+                # Find 2D vector if overlapped los vels exist
+                # if not then use the L-shell fitted 2D vels.
+                verts = [[], []]
+                intensities = []
+                lines = []
+                if nazmslim_pr_grid < 2:
+                    if (not df1_lfitvel.empty):
+                        xp, yp = self.map_obj(0, 90)    # geomagnetic pole position on the map
+                        xo, yo = self.map_obj(df1_lfitvel.lonc.tolist(), df1_lfitvel.latc.tolist())
                         the0 = np.arctan2(yp-np.array(yo),xp-np.array(xo))
-                        theta = the0 - np.deg2rad(dfge3_lfitvel['lfit_azm'].tolist())
-                        x1,y1 = myMap(dfge3_lfitvel['lonc'].tolist(), dfge3_lfitvel['latc'].tolist())
+                        theta = the0 - np.deg2rad(df1_lfitvel['lfit_azm'].tolist())
+                        x1,y1 = self.map_obj(df1_lfitvel['lonc'].tolist(), df1_lfitvel['latc'].tolist())
                         verts[0].extend(x1)
                         verts[1].extend(y1)
                         x1 = np.array(x1)
                         y1 = np.array(y1)
-                        x2 = x1+np.array(dfge3_lfitvel['lfit_vel'].tolist())/velscl*(-1.0)*np.cos(theta)*dist
-                        y2 = y1+np.array(dfge3_lfitvel['lfit_vel'].tolist())/velscl*(-1.0)*np.sin(theta)*dist
-    
+                        x2 = x1+np.array(df1_lfitvel['lfit_vel'].tolist())/velscl*(-1.0)*np.cos(theta)*dist
+                        y2 = y1+np.array(df1_lfitvel['lfit_vel'].tolist())/velscl*(-1.0)*np.sin(theta)*dist
+
                         lines.extend(zip(zip(x1,y1),zip(x2,y2)))
                         #save the param to use as a color scale
-                        intensities.extend(dfge3_lfitvel['lfit_vel'].tolist())
-    
-    
-                    #do the actual overlay
-                    #plot the i-s as filled circles
-                    ccoll = myMap.ax.scatter(np.array(verts[0]),np.array(verts[1]),
-                                    #s=.1*np.array(intensities[1])[inx],zorder=10,marker='o',
-                                    s=3.0,zorder=10,marker='o', c=np.abs(np.array(intensities)),
-                                    linewidths=.5, edgecolors='face',cmap=cmap,norm=norm)
-    
-                    myMap.ax.add_collection(ccoll)
-                    #plot the velocity vectors
-                    lcoll = LineCollection(np.array(lines),linewidths=0.5,zorder=12,cmap=cmap,norm=norm)
-                    lcoll.set_array(np.abs(np.array(intensities)))
-                    myMap.ax.add_collection(lcoll)
-    
-                if fitting_diagnostic_plot:
-                    latc_list = [x + 0.5 for x in range(52, 59)]
-                    #latc_list=None
-                    plot_az_losvel(radars, df_lfitvel, color_list, stime, interval,
-                                   latc_list=latc_list)
-        else:
-            intensities, lcoll = None, None
-        return intensities,lcoll
+                        intensities.extend(df1_lfitvel['lfit_vel'].tolist())
 
-    def add_cbar(fig, coll, bounds, label="Velocity [m/s]", cax=None,
-                 title_size=14, ytick_label_size=12):
-    
-        # add color bar
-        if cax:
-            cbar=fig.colorbar(coll, cax=cax, orientation="vertical",
-                              boundaries=bounds, drawedges=False)
-        else:
-            cbar=fig.colorbar(coll, orientation="vertical", shrink=.65,
-                              boundaries=bounds, drawedges=False)
-    
-        #define the colorbar labels
-        l = []
-        for i in range(0,len(bounds)):
-            if i == 0 or i == len(bounds)-1:
-                l.append(' ')
-                continue
-            l.append(str(int(bounds[i])))
-        cbar.ax.set_yticklabels(l)
-        cbar.ax.tick_params(axis='y',direction='out')
-        cbar.set_label(label)
-    
-        #set colorbar ticklabel size
-        for ti in cbar.ax.get_yticklabels():
-            ti.set_fontsize(ytick_label_size)
-        cbar.set_label('Velocity [m/s]',size=title_size)
-        cbar.extend='max'
+                # for df2_merged
+                df2_merged = merge_2losvecs(self.map_obj, df2_griddedvel)
+                if df2_merged is not None:
+                    xr1,yr1 = self.map_obj(df2_merged['lonc'].tolist(), df2_merged['latc'].tolist())
+                    verts[0].extend(xr1)
+                    verts[1].extend(yr1)
+                    xr1 = np.array(xr1)
+                    yr1 = np.array(yr1)
+                    vel_r = df2_merged['vel_2d'].as_matrix()
+                    theta_r = np.deg2rad(df2_merged['theta_2d'].as_matrix())
+                    xr2 = xr1+vel_r/velscl*(+1.0)*np.cos(theta_r)*dist
+                    yr2 = yr1+vel_r/velscl*(+1.0)*np.sin(theta_r)*dist
+
+                    lines.extend(zip(zip(xr1,yr1),zip(xr2,yr2)))
+                    #save the param to use as a color scale intensities.extend(vel_r.tolist())
+                    intensities.extend(df2_merged['vel_2d'].tolist())
+
+                # for dfge3_lfitvel
+                dfge3_griddedvel = df_griddedvel.groupby(['latc', 'lonc'], as_index=False).filter(lambda x: len(x)>=3)
+                dfgge3 = dfge3_griddedvel.groupby(['latc', 'lonc'], as_index=False)
+                groups_lfit=[]
+                for indx, group in dfgge3:
+                    group_lfit = sdvel_lfit(self.map_obj, group, npntslim_lfit=3)
+                    if group_lfit is not None:
+                        groups_lfit.append(group_lfit)
+                if (not groups_lfit==[]):
+                    dfge3_lfitvel = pd.concat(groups_lfit)
+                    xp, yp = self.map_obj(0, 90)    # geomagnetic pole position on the map
+                    xo, yo = self.map_obj(dfge3_lfitvel.lonc.tolist(), dfge3_lfitvel.latc.tolist())
+                    the0 = np.arctan2(yp-np.array(yo),xp-np.array(xo))
+                    theta = the0 - np.deg2rad(dfge3_lfitvel['lfit_azm'].tolist())
+                    x1,y1 = self.map_obj(dfge3_lfitvel['lonc'].tolist(), dfge3_lfitvel['latc'].tolist())
+                    verts[0].extend(x1)
+                    verts[1].extend(y1)
+                    x1 = np.array(x1)
+                    y1 = np.array(y1)
+                    x2 = x1+np.array(dfge3_lfitvel['lfit_vel'].tolist())/velscl*(-1.0)*np.cos(theta)*dist
+                    y2 = y1+np.array(dfge3_lfitvel['lfit_vel'].tolist())/velscl*(-1.0)*np.sin(theta)*dist
+
+                    lines.extend(zip(zip(x1,y1),zip(x2,y2)))
+                    #save the param to use as a color scale
+                    intensities.extend(dfge3_lfitvel['lfit_vel'].tolist())
+
+
+                #do the actual overlay
+                #plot the i-s as filled circles
+                ccoll = self.ax.scatter(np.array(verts[0]),np.array(verts[1]),
+                                #s=.1*np.array(intensities[1])[inx],zorder=10,marker='o',
+                                s=3.0,zorder=10,marker='o', c=np.abs(np.array(intensities)),
+                                linewidths=.5, edgecolors='face',cmap=cmap,norm=norm)
+
+                self.ax.add_collection(ccoll)
+                #plot the velocity vectors
+                lcoll = LineCollection(np.array(lines),linewidths=0.5,zorder=12,cmap=cmap,norm=norm)
+                lcoll.set_array(np.abs(np.array(intensities)))
+                self.ax.add_collection(lcoll)
+
+            if lcoll:
+                lfitvel_mappable = lcoll
+            self.lfitvel_mappable=lfitvel_mappable
+
+            if fitting_diagnostic_plot:
+                color_list = ['r', 'b', 'g', 'c', 'm', 'k']
+                latc_list = [x + 0.5 for x in range(52, 59)]
+                #latc_list=None
+                plot_az_losvel(rds, df_lfitvel, color_list, stime, interval,
+                                   latc_list=latc_list)
+        return
+
+    def overlay_poes(self, pltDate=None, selTime=None,
+		     satList=["m01", "n15", "n19", "n18"],
+		     plotCBar=False, cbar_shrink=0.8, 
+		     rawSatDir="../../data/poes/raw/",
+		     inpFileDir="../../data/poes/bnd/"):
+        """Overlays POES Satellite data and
+        the estimate Plassmapause Boundary
+
+        NOTE: POES data has to be downloaded and processed. 
+        
+        """
+        from poes import poes_plot_utils
+	import datetime as dt
+        import os
+
+        if selTime is None:
+            selTime = self.stime
+	if pltDate is None:
+	    pltDate = dt.datetime(selTime.year, selTime.month, selTime.day)
+	inpFileName = inpFileDir + "poes-fit-" + pltDate.strftime("%Y%m%d") + ".txt"
+        if os.path.isfile(inpFileName):
+            poesPltObj = poes_plot_utils.PlotUtils(pltDate, pltCoords=self.coords)
+            poesPltObj.overlay_closest_sat_pass(selTime, self.map_obj, self.ax,
+                                                rawSatDir, satList=satList,
+                                                plotCBar=plotCBar,
+                                                cbar_shrink=cbar_shrink)
+            # two ways to overlay estimated boundary!
+            # poesPltObj.overlay_equ_bnd(selTime, self.map_obj, self.ax,rawSatDir)
+            poesPltObj.overlay_equ_bnd(selTime, self.map_obj, self.ax,\
+                                       inpFileName=inpFileName)
+
+        return
+
+
+def add_cbar(fig, mappable, label="Velocity [m/s]", cax=None,
+             ax=None, shrink=0.65, title_size=14,
+             ytick_label_size=12):
+
+    # add color bar
+    cbar=fig.colorbar(mappable, ax=ax, cax=cax, shrink=shrink,
+                      orientation="vertical", drawedges=False)
+
+#    #define the colorbar labels
+#    l = []
+#    for i in range(0,len(bounds)):
+#        if i == 0 or i == len(bounds)-1:
+#            l.append(' ')
+#            continue
+#        l.append(str(int(bounds[i])))
+#    cbar.ax.set_yticklabels(l)
+    cbar.ax.tick_params(axis='y',direction='out')
+    cbar.set_label(label)
+
+    #set colorbar ticklabel size
+    for ti in cbar.ax.get_yticklabels():
+        ti.set_fontsize(ytick_label_size)
+    cbar.set_label('Velocity [m/s]',size=title_size)
+    cbar.extend='max'
 
 if __name__ == "__main__":
     import datetime as dt
     import numpy as np
     import matplotlib.pyplot as plt
     from matplotlib.colors import ListedColormap as lcm
-    from matplotlib.colors import BoundaryNorm
+    from matplotlib.colors import BoundaryNorm, Normalize
     import matplotlib.cm
 
     fig, ax = plt.subplots(figsize=(8,6))
-    stime = dt.datetime(2012, 11, 7, 4, 0)
+    #stime = dt.datetime(2013, 1, 2, 6, 0)
+    stime = dt.datetime(2015, 4, 9, 7, 30)
     interval = 2*60
+    etime = stime+dt.timedelta(seconds=interval)
     coords = "mlt"
-    rads = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+    #rads = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+    rads = ["cve", "cvw"]
+    #vel_scale=[-200,200]
+    vel_scale=[-50,50]
 
-    # customized cmap
-    cmj = matplotlib.cm.jet
-    cmpr = matplotlib.cm.prism
-    cmap = lcm([cmj(.95), cmj(.85), cmj(.79), cmpr(.142), cmj(.45), cmj(.3), cmj(.1)])
-    scale=[0,150]
-    bounds = np.round(np.linspace(scale[0], scale[1], 7))
-    bounds = np.append(bounds, 50000.)
-
-    #color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
-    #cmap = lcm(color_list)
-    #bounds = [0., 8, 17, 25, 33, 42, 10000]
-
+#    # customized cmap
+#    cmj = matplotlib.cm.jet
+#    cmpr = matplotlib.cm.prism
+#    cmap = lcm([cmj(.95), cmj(.85), cmj(.79), cmpr(.142), cmj(.45), cmj(.3), cmj(.1)])
+#    bounds = np.round(np.linspace(vel_scale[0], vel_scale[1], 7))
+#
+    color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
+    cmap_lfit = lcm(color_list)
+    bounds_lfit = [0., 8, 17, 25, 33, 42, 10000]
     # norm for color coding the velocity vectors and points
-    norm = BoundaryNorm(bounds, cmap.N)
+    #norm_lfit = Normalize(vmin=0,vmax=vel_scale[1])
+    norm_lfit = BoundaryNorm(boundaries=bounds_lfit,
+                             ncolors=len(bounds_lfit)-1)
 
-    #cmap = "jet"
+    cmap = "jet_r"
     #norm = None
-
+    norm = Normalize(vmin=vel_scale[0],vmax=vel_scale[1])
 
     # create an obj
     obj = sdvel_on_map(ax, rads, stime, interval=interval,
-		       map_lat0=60, map_lon0=0,
+		       map_lat0=70, map_lon0=0,
 		       map_width=90*111e3, 
 		       map_height=50*111e3, 
 		       map_resolution='l', 
@@ -822,23 +820,64 @@ if __name__ == "__main__":
     # Overlay LOS velocity data 
     obj.overlay_raw_data(param="velocity",
 			 gsct=0, fill=True,
-			 velscl=1.,
-			 srange_lim=[450, 3000],
-			 zorder=4,alpha=1,
+			 velscl=1000.,
+			 srange_lim=[450, 2000],
+			 zorder=4,alpha=0.7,
 			 cmap=cmap,norm=norm)
+
     # Overlay Radar Names
     obj.overlay_radName()
 
-    # Overlay Radar FoVs
-    #obj.overlay_radFov(maxGate=50)
+#    # Overlay Radar FoVs
+#    obj.overlay_radFov(maxGate=50)
 
     # Overlay Grids
-    obj.overlay_grids(lat_min=30, lat_max=90, dlat=1,
-		      zorder=10, half_dlat_offset=True)
+    obj.overlay_grids(lat_min=20, lat_max=90, dlat=1,
+		      zorder=2, half_dlat_offset=False)
 
     # Calculate gridded LOS velocity
     obj.calc_gridded_losvel(lat_min=30, lat_max=90, dlat=1,
-			    srange_lim=[450, 4000],
+			    srange_lim=[450, 2000],
 			    min_npnts=1,
 			    half_dlat_offset=False)
+
+#    # Overlay gridded LOS velocity
+#    obj.overlay_gridded_losvel(zorder=10, vel_lim=[-500, 500],
+#			       cmap=cmap, norm=norm, velscl=1000.)
+
+    obj.overlay_2D_sdvel(npntslim_lfit=5,
+                         rad_groups=[["wal", "bks"], ["fhe", "fhw"],
+                                     ["cve", "cvw"], ["ade", "adw"]],
+			 cmap=cmap_lfit,norm=norm_lfit, velscl=1000.0, 
+			 max_lfit_vel_lim=None,
+			 all_lfitvel=True, hybrid_2Dvel=False,
+			 nazmslim_pr_grid=1, fitting_diagnostic_plot=False)
+
+
+    # Overlay POES data
+    obj.overlay_poes(pltDate=None, selTime=None,
+		     #satList=["m01", "m02", "mgo", "n15", "n17", "n18", "n19"],
+		     plotCBar=False, cbar_shrink=0.5,
+		     rawSatDir="../../data/poes/raw/",
+		     inpFileDir="../../data/poes/bnd/")
+
+#    # Add colorbar for LOS Vel.
+#    add_cbar(fig, obj.losvel_mappable, label="Velocity [m/s]", cax=None,
+#             ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
+
+    # Add colorbar for L-Shell Fit Vel.
+    add_cbar(fig, obj.lfitvel_mappable, label="Velocity [m/s]", cax=None,
+             ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
+
+
+    # Add title 
+    ax.set_title(stime.strftime('%b/%d/%Y   ') +\
+		 stime.strftime('%H:%M - ')+\
+                 etime.strftime('%H:%M  UT'))
+    fig.savefig("../plots/scan_plot/" + \
+                stime.strftime("%Y%m%d.%H%M") +\
+                "_to_" + etime.strftime("%Y%m%d.%H%M") +\
+		".png", dpi=200)
+
+    obj.show_map()
 
