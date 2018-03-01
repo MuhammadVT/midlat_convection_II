@@ -10,6 +10,21 @@ def pol2cart(phi, rho):
     y = rho * np.sin(phi)
     return(x, y)
 
+
+def convert_to_datetime(row):
+    currDateStr = str( int( row["dateStr"] ) )
+#     return currDateStr
+    if row["timeStr"] < 10:
+        currTimeStr = "000" + str( int( row["timeStr"] ) )
+    elif row["timeStr"] < 100:
+        currTimeStr = "00" + str( int( row["timeStr"] ) )
+    elif row["timeStr"] < 1000:
+        currTimeStr = "0" + str( int( row["timeStr"] ) )
+    else:
+        currTimeStr = str( int( row["timeStr"] ) )
+    return datetime.datetime.strptime( currDateStr\
+                    + ":" + currTimeStr, "%Y%m%d:%H%M" )
+
 def ace_read(sTime, eTime, res=1):
     import numpy as np
     from spacepy import pycdf
