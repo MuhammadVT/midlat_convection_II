@@ -320,7 +320,7 @@ def calc_azm(myMap, df):
     df.loc[:, 'azm_los'] = np.array(azms)
     return df
 
-def sdvel_lfit(myMap, df, npntslim_lfit=5, OLS=True):
+def sdvel_lfit(myMap, df, npntslim_lfit=5, OLS=False):
     """
     Resolves the 2D flow vector using L-shell cosine fitting method
     """
@@ -400,7 +400,6 @@ def lfit_non_linear_LS(group):
 
     return group
 
-
 def cosfunc(x, Amp, phi):
     import numpy as np
     return Amp * np.cos(1 * x - phi)
@@ -442,7 +441,8 @@ def sdvel_cosfit(df, npntslim_cosfit=5):
         #    fitpars = [-fitpars[0], fitpars[1]+np.pi/2.0]
         perrs = np.sqrt(np.diag(covmat)) 
         df_tmp = pd.DataFrame({'cosfit_vel': fitpars[0], 'cosfit_velerr' : perrs[0],
-                               'cosfit_bmazm':np.rad2deg(fitpars[1]) % 360, 'cosfit_bmazmerr': np.rad2deg(perrs[1]) % 360},
+                               'cosfit_bmazm':np.rad2deg(fitpars[1]) % 360,
+                               'cosfit_bmazmerr': np.rad2deg(perrs[1]) % 360},
                                index=group.index)
         N = 1
         return group.join(df_tmp)
@@ -499,7 +499,7 @@ def merge_2losvecs (myMap, df2_griddedvel, velscl=1000., dist=1000.):
     return df2_merged
 
 def plot_losvel_az(radars, df_lfitvel, color_list, stime,
-                   interval, latc_list=None):
+                   interval, latc_list=None, vel_scale=[-150, 150]):
     """
     This plots losvel data that go into fitting process.
     This function is called within overlay_2D_sdvel function.
@@ -540,7 +540,6 @@ def plot_losvel_az(radars, df_lfitvel, color_list, stime,
         # plot losvel vs az for a single radar for certain latc
         try:
             df_expr.plot(subplots=True, ax=axx1_indv, linestyle='',
-                         linewidth=0.5,
                          marker='o', markersize=3, mec=color_list[r],
                          mfc=color_list[r], legend=False, grid=False)
         except:
@@ -548,7 +547,7 @@ def plot_losvel_az(radars, df_lfitvel, color_list, stime,
 
     figg1.text(0.93, 0.93, 'Radars:',ha='center',size=10)
 
-    df_tmp = df_lfitvel[['latc', 'lfit_azm', 'lfit_vel']]
+    df_tmp = df_lfitvel[['latc', 'lfit_azm', 'lfit_vel', 'lfit_vel_err']]
     df_tmp = df_tmp.groupby(['latc'], as_index=False).first()
     df_tmp = df_tmp.set_index(['latc'])
     df_tmp = df_tmp.loc[latc_list, :]
@@ -565,7 +564,7 @@ def plot_losvel_az(radars, df_lfitvel, color_list, stime,
         vel_err_tmp = df_tmp.loc[latc_list[l], 'lfit_vel_err']
         if azm_tmp > 180: azm_tmp -= 360
         axx1[l].plot(azm_tmp, vel_tmp, marker='*',
-                     markersize=10, mec='r', mfc='r')
+                     markersize=10, mec='orange', mfc='orange')
 
 #        # set the number of yticks
 #        locator = MaxNLocator(nbins=3)
@@ -576,25 +575,15 @@ def plot_losvel_az(radars, df_lfitvel, color_list, stime,
 
         # mark the peak position
         fsz = 5
-        axx1[l].annotate('vel=' + '{0:.01f}'.format(vel_tmp) , xy = (0.02, 0.88),
-                         xycoords='axes fraction', horizontalalignment='left',
-                         verticalalignment='bottom', fontsize=fsz)
-        axx1[l].annotate('azm=' + '{0:.01f}'.format(azm_tmp) +'$^\circ$', xy = (0.015, 0.78),
+        axx1[l].annotate('vel=' + '{0:.01f}'.format(vel_tmp) +\
+                         '\nazm=' + '{0:.01f}'.format(azm_tmp) +'$^\circ$' +\
+                         '\nvel_std=' + '{0:.01f}'.format(vel_err_tmp), xy = (1.02, 0.20),
                          xycoords='axes fraction', horizontalalignment='left',
                          verticalalignment='bottom', fontsize=fsz)
     
-        # fitting error values
-        ax.annotate('vel_std=' + '{0:.01f}'.format(vel_err_tmp) , xy = (0.02, 0.74),
-                    xycoords='axes fraction', horizontalalignment='left',
-                    verticalalignment='bottom', fontsize=fsz) 
-#        ax.annotate('azm_std=' + '{0:.01f}'.format(vel_dir_err) +'$^\circ$' , xy = (0.02, 0.66),
-#                     xycoords='axes fraction', horizontalalignment='left',
-#                     verticalalignment='bottom', fontsize=fsz) 
-
-    
-    scale_tmp = [-150, 150]
-    df_fit.plot(subplots=True, ax=axx1, linestyle='--', marker='.', markersize=2,
-            mec='k', mfc='k', legend=False, grid=True, ylim=scale_tmp)
+    df_fit.plot(subplots=True, ax=axx1, linewidth=1.0,
+                marker='.', markersize=1, mec='k', mfc='k',
+                legend=False, grid=True, ylim=vel_scale)
     axx1[-1].set_xlabel(r'Azimuth [$^{\circ}$]')
     axx1[0].set_title(stime.strftime('%Y/%m/%d            %H:%M') + ' - ' +\
                       (stime+dt.timedelta(seconds=interval)).strftime('%H:%M  UT'),
