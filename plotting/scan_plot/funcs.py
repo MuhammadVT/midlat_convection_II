@@ -320,13 +320,11 @@ def calc_azm(myMap, df):
     df.loc[:, 'azm_los'] = np.array(azms)
     return df
 
-def sdvel_lfit(myMap, df, npntslim_lfit=5):
+def sdvel_lfit(myMap, df, npntslim_lfit=5, OLS=True):
     """
     Resolves the 2D flow vector using L-shell cosine fitting method
     """
     import pandas as pd
-    import numpy as np
-    import statsmodels.api as sm 
     import scipy
 
     # groupby by the center latitude of the grids and filter out the
@@ -339,12 +337,22 @@ def sdvel_lfit(myMap, df, npntslim_lfit=5):
         df = calc_azm(myMap, df)
 
         # df that includes lfit parameters
-        df = df.groupby(['latc'], as_index=False).apply(lfit_OLS)
+        if OLS:
+            df = df.groupby(['latc'], as_index=False).apply(lfit_OLS)
+        else:
+            df = df.groupby(['latc'], as_index=False).apply(lfit_non_linear_LS)
     else:
         df = None
     return df
 
 def lfit_OLS(group):
+    """Performs OLS fit
+    This function is called inside sdvel_lfit
+    """
+
+    import statsmodels.api as sm 
+    import numpy as np
+
     A = np.column_stack((np.cos(np.radians(group.azm_los.as_matrix())),\
                          np.sin(np.radians(group.azm_los.as_matrix()))))
 
@@ -368,6 +376,43 @@ def lfit_OLS(group):
     group['lfit_azm'] = 90. - np.degrees(np.arctan2(velN, velE))
 
     return group
+
+def lfit_non_linear_LS(group):
+    """Performs non-linear LS fit
+    This function is called inside sdvel_lfit
+    """
+
+    import numpy as np
+
+    # do cosine fitting with weight
+    azm = group.azm_los.as_matrix()
+    los_vel = group.vel.as_matrix()
+    sigma = sigma =  np.array([1.0 for x in azm])
+    fitpars, perrs = cos_curve_fit(azm, los_vel, sigma)
+    vel_mag = round(fitpars[0],2)
+    vel_dir = round(np.rad2deg(fitpars[1]) % 360,1)
+    vel_mag_err = round(perrs[0],2)
+    vel_dir_err = round(np.rad2deg(perrs[1]) % 360, 1)
+
+    group['lfit_vel'] = vel_mag 
+    group['lfit_vel_err'] = vel_mag_err
+    group['lfit_azm'] = vel_dir
+
+    return group
+
+
+def cosfunc(x, Amp, phi):
+    import numpy as np
+    return Amp * np.cos(1 * x - phi)
+
+def cos_curve_fit(azms, vels, sigma):
+    import numpy as np
+    from scipy.optimize import curve_fit
+    fitpars, covmat = curve_fit(cosfunc, np.deg2rad(azms), vels, sigma=sigma)
+    perrs = np.sqrt(np.diag(covmat)) 
+
+    return fitpars, perrs
+
 
 
 ################# sdvel_cosfit() has to be modified ################
