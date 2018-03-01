@@ -337,34 +337,38 @@ def sdvel_lfit(myMap, df, npntslim_lfit=5):
         # calculate the LOS azm angle at the grid point,
         # which is bewtween LOS direction and pole direction
         df = calc_azm(myMap, df)
-        def lfit(group):
-            A = np.column_stack((np.cos(np.radians(group.azm_los.as_matrix())),\
-                                 np.sin(np.radians(group.azm_los.as_matrix()))))
-
-            yy = group.vel.as_matrix()
-            model = sm.OLS(yy, A)
-            reslt3 = model.fit()
-            velN, velE = reslt3.params
-            velN_err, velE_err = reslt3.bse
-    #        # double checking using other lsqr fitting modules
-    #        reslt1 = np.linalg.lstsq(A, yy)
-    #        velN, velE = reslt1[0]
-    #        reslt2 = scipy.sparse.linalg.lsqr(A,yy)
-    #        velN, velE = reslt2[0]
-    #        #A = sm.add_constant(A)
-            group['velN'], group['velN_err'] = velN, velN_err
-            group['velE'], group['velE_err'] = velE, velE_err
-            group['lfit_vel'] = np.sqrt(group.velN.apply(np.square) +\
-                                        group.velE.apply(np.square))
-            group['lfit_azm'] = 90. - np.degrees(np.arctan2(velN, velE))
-
-            return group
 
         # df that includes lfit parameters
-        df = df.groupby(['latc'], as_index=False).apply(lfit)
+        df = df.groupby(['latc'], as_index=False).apply(lfit_OLS)
     else:
         df = None
     return df
+
+def lfit_OLS(group):
+    A = np.column_stack((np.cos(np.radians(group.azm_los.as_matrix())),\
+                         np.sin(np.radians(group.azm_los.as_matrix()))))
+
+    yy = group.vel.as_matrix()
+    model = sm.OLS(yy, A)
+    reslt3 = model.fit()
+    velN, velE = reslt3.params
+    velN_err, velE_err = reslt3.bse
+   ## double checking using other lsqr fitting modules
+   #reslt1 = np.linalg.lstsq(A, yy)
+   #velN, velE = reslt1[0]
+   #reslt2 = scipy.sparse.linalg.lsqr(A,yy)
+   #velN, velE = reslt2[0]
+   ##A = sm.add_constant(A)
+    group['velN'], group['velN_err'] = velN, velN_err
+    group['velE'], group['velE_err'] = velE, velE_err
+    group['lfit_vel'] = np.sqrt(group.velN.apply(np.square) +\
+                                group.velE.apply(np.square))
+    group['lfit_vel_err'] = np.sqrt(group.velN_err.apply(np.square) +\
+                                group.velE_err.apply(np.square))
+    group['lfit_azm'] = 90. - np.degrees(np.arctan2(velN, velE))
+
+    return group
+
 
 ################# sdvel_cosfit() has to be modified ################
 def sdvel_cosfit(df, npntslim_cosfit=5):
@@ -449,7 +453,7 @@ def merge_2losvecs (myMap, df2_griddedvel, velscl=1000., dist=1000.):
         df2_merged = None
     return df2_merged
 
-def plot_az_losvel(radars, df_lfitvel, color_list, stime,
+def plot_losvel_az(radars, df_lfitvel, color_list, stime,
                    interval, latc_list=None):
     """
     This plots losvel data that go into fitting process.
@@ -458,6 +462,9 @@ def plot_az_losvel(radars, df_lfitvel, color_list, stime,
 
     import datetime as dt
     from matplotlib.ticker import MaxNLocator
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pandas as pd
 
     if latc_list is None:
         latc_list = [x for x in df_lfitvel.latc.unique()]
@@ -467,7 +474,8 @@ def plot_az_losvel(radars, df_lfitvel, color_list, stime,
     # plot the data that goes into a fitting
     figg1, axx1 = plt.subplots(npanels,1, sharex=True)
     for r in range(len(radars)):
-        latc_list_indv = [x for x in latc_list if x in df_lfitvel.ix[radars[r]].latc.unique()]
+        latc_list_indv = [x for x in latc_list\
+                          if x in df_lfitvel.ix[radars[r]].latc.unique()]
         panel_args = [latc_list.index(x) for x in latc_list_indv] 
         axx1_indv = axx1[panel_args]
 
@@ -481,16 +489,18 @@ def plot_az_losvel(radars, df_lfitvel, color_list, stime,
         df_expr = df_expr[latc_list_indv]
 
         # annotate radar names
-        figg1.text(0.93, 0.90-r*0.03, radars[r],ha='center',size=10, color=color_list[r])
+        figg1.text(0.93, 0.90-r*0.03, radars[r],
+                   ha='center',size=10, color=color_list[r])
 
         # plot az vs losvel for a single radar for certain latc
         try:
-            df_expr.plot(subplots=True, ax=axx1_indv, linestyle='', marker='o', markersize=3,
-                    mec=color_list[r], mfc=color_list[r], legend=False, grid=False)
+            df_expr.plot(subplots=True, ax=axx1_indv, linestyle='',
+                         marker='o', markersize=3, mec=color_list[r],
+                         mfc=color_list[r], legend=False, grid=False)
         except:
             continue
 
-    figg1.text(0.93, 0.93, 'Radar:',ha='center',size=10)
+    figg1.text(0.93, 0.93, 'Radars:',ha='center',size=10)
 
     df_tmp = df_lfitvel[['latc', 'lfit_azm', 'lfit_vel']]
     df_tmp = df_tmp.groupby(['latc'], as_index=False).first()
@@ -499,8 +509,9 @@ def plot_az_losvel(radars, df_lfitvel, color_list, stime,
    
     df_fit = pd.DataFrame(data=0, index=np.arange(361) - 180, columns=latc_list)
     for l in range(len(latc_list)):
-        df_fit[latc_list[l]] = df_tmp.loc[latc_list[l], 'lfit_vel'] * np.cos(np.radians(df_tmp.loc[latc_list[l],
-                                          'lfit_azm'] % 360 - df_fit.index.get_values() % 360))
+        df_fit[latc_list[l]] = df_tmp.loc[latc_list[l], 'lfit_vel'] *\
+                               np.cos(np.radians(df_tmp.loc[latc_list[l], 'lfit_azm'] %\
+                               360 - df_fit.index.get_values() % 360))
         axx1[l].set_ylabel(str(latc_list[l]) + '$^\circ$')
         axx1[l].set_xlabel('')
         azm_tmp = df_tmp.loc[latc_list[l], 'lfit_azm'] % 360
@@ -524,9 +535,10 @@ def plot_az_losvel(radars, df_lfitvel, color_list, stime,
                       ha='center',size=12,weight=550)
     
     #handle the outputs
-    figg1.savefig('./plots/panelplot_' + stime.strftime("%Y%m%d.%H%M") +\
-                "_to_" + (stime+dt.timedelta(seconds=interval)).strftime("%Y%m%d.%H%M")+\
-                '.png', dpi=300)
+    figg1.savefig('../plots/scan_plot/panelplot_' + "_".join(radars)  + "_" +\
+                  stime.strftime("%Y%m%d.%H%M") + "_to_" +\
+                  (stime+dt.timedelta(seconds=interval)).strftime("%Y%m%d.%H%M")+\
+                  '.png', dpi=300)
 
     plt.close(figg1)
 
