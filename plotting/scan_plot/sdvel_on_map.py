@@ -550,7 +550,7 @@ class sdvel_on_map(object):
 			 lfit_vel_max_lim=None,
                          lat_lim=[50., 90.], vel_err_ratio_lim=0.5,
 			 all_lfitvel=False, hybrid_2Dvel=False,
-			 nazmslim_pr_grid=1,
+			 nazmslim_pr_grid=1, OLS=False,
                          fitting_diagnostic_plot=False, vel_scale=[-150, 150]):
         """Calculates the 2-D flow vectors and overlay them on a map"""
     
@@ -572,7 +572,7 @@ class sdvel_on_map(object):
                 df_lfitvel_list.append(None)
                 continue
             df_lfitvel = sdvel_lfit(self.map_obj, df_griddedvel,
-                                    npntslim_lfit=npntslim_lfit)
+                                    npntslim_lfit=npntslim_lfit, OLS=OLS)
             df_lfitvel_list.append(df_lfitvel)
 
             # Filter based on lat range
@@ -616,13 +616,13 @@ class sdvel_on_map(object):
                 #plot the i-s as filled circles
                 ccoll = self.ax.scatter(np.array(verts[0]),np.array(verts[1]),
                                 #s=.1*np.array(intensities[1])[inx],zorder=10,marker='o',
-                                s=3.0,zorder=10,marker='o', c=np.array(intensities),
+                                s=3.0,zorder=10,marker='o', c=np.abs(np.array(intensities)),
                                 linewidths=.5, edgecolors='face',cmap=cmap,norm=norm)
 
                 self.ax.add_collection(ccoll)
                 #plot the velocity vectors
                 lcoll = LineCollection(np.array(lines),linewidths=0.5,zorder=12,cmap=cmap,norm=norm)
-                lcoll.set_array(np.array(intensities))
+                lcoll.set_array(np.abs(np.array(intensities)))
                 self.ax.add_collection(lcoll)
 
             # Seperate overlaped gridded los vel from non-overlaped ones
@@ -728,6 +728,43 @@ class sdvel_on_map(object):
         self.lfitvel = df_lfitvel_list
         return
 
+    def overlay_tec(self, ctime=None, cmap=None, norm=None,
+		    zorder=5,
+		    inpDir = "/sd-data/med_filt_tec/"):
+
+        """Overlays the GPS TEC data
+        """
+
+        import pandas as pd
+        from funcs import convert_to_datetime
+    
+        # Read the median filtered TEC data
+        inpColList = [ "dateStr", "timeStr", "Mlat",\
+                              "Mlon", "med_tec", "dlat", "dlon" ]
+        if ctime is None:
+            ctime = self.stime
+        inpFile = inpDir + "tec-medFilt-" + ctime.strftime("%Y%m%d") + ".txt"
+        medFiltTECDF = pd.read_csv(inpFile, delim_whitespace=True,
+                                   header=None, names=inpColList)
+        medFiltTECDF["datetime"] = medFiltTECDF.apply(convert_to_datetime, axis=1)
+    
+        # Find the time closed to time interval of interest
+        stm = ctime - dt.timedelta(minutes=5)
+        etm = ctime + dt.timedelta(minutes=5)
+        df = medFiltTECDF.loc[(medFiltTECDF.datetime >= stm) &\
+                              (medFiltTECDF.datetime < etm), :]
+
+	# Overlay the tec data on to a map
+	x1, y1 = self.map_obj(df.Mlon.as_matrix(),
+			      df.Mlat.as_matrix())
+
+	ccoll = self.map_obj.ax.scatter(x1, y1, s=3.0, zorder=zorder,
+					marker='o', c=df.med_tec.as_matrix(),
+					linewidths=.5, edgecolors='face',
+					cmap=cmap,norm=norm)
+	
+        return 
+
     def overlay_poes(self, pltDate=None, selTime=None,
 		     satList=["m01", "n15", "n19", "n18"],
 		     plotCBar=False, cbar_shrink=0.8, 
@@ -796,8 +833,8 @@ if __name__ == "__main__":
     import matplotlib.cm
 
     fig, ax = plt.subplots(figsize=(8,6))
-    #stime = dt.datetime(2013, 1, 2, 6, 0)
-    stime = dt.datetime(2015, 4, 9, 7, 30)
+    stime = dt.datetime(2013, 1, 2, 6, 0)
+    #stime = dt.datetime(2015, 4, 9, 7, 30)
     interval = 2*60
     etime = stime+dt.timedelta(seconds=interval)
     coords = "mlt"
@@ -868,11 +905,15 @@ if __name__ == "__main__":
     obj.overlay_2D_sdvel(npntslim_lfit=15, lat_lim=[53, 70],
                          rad_groups=[["wal", "bks"], ["fhe", "fhw"],
                                      ["cve", "cvw"], ["ade", "adw"]],
-			 cmap=cmap_lfit,norm=norm_lfit, velscl=1000.0, 
-			 lfit_vel_max_lim=None, vel_err_ratio_lim=0.5,
+			 cmap=cmap_lfit,norm=norm_lfit, velscl=2000.0, 
+			 lfit_vel_max_lim=None, vel_err_ratio_lim=0.3,
 			 all_lfitvel=True, hybrid_2Dvel=False,
-			 nazmslim_pr_grid=1,
+			 nazmslim_pr_grid=1, OLS=False,
                          fitting_diagnostic_plot=True, vel_scale=vel_scale)
+
+    # Overlay GPS TEC data
+    obj.overlay_tec(ctime=None, cmap='gist_gray_r',
+		    zorder=2, inpDir = "/sd-data/med_filt_tec/")
 
 
     # Overlay POES data
