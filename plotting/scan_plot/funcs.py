@@ -537,9 +537,10 @@ def plot_losvel_az(radars, df_lfitvel, color_list, stime,
         figg1.text(0.93, 0.90-r*0.03, radars[r],
                    ha='center',size=10, color=color_list[r])
 
-        # plot az vs losvel for a single radar for certain latc
+        # plot losvel vs az for a single radar for certain latc
         try:
             df_expr.plot(subplots=True, ax=axx1_indv, linestyle='',
+                         linewidth=0.5,
                          marker='o', markersize=3, mec=color_list[r],
                          mfc=color_list[r], legend=False, grid=False)
         except:
@@ -560,9 +561,11 @@ def plot_losvel_az(radars, df_lfitvel, color_list, stime,
         axx1[l].set_ylabel(str(latc_list[l]) + '$^\circ$')
         axx1[l].set_xlabel('')
         azm_tmp = df_tmp.loc[latc_list[l], 'lfit_azm'] % 360
+        vel_tmp = df_tmp.loc[latc_list[l], 'lfit_vel']
+        vel_err_tmp = df_tmp.loc[latc_list[l], 'lfit_vel_err']
         if azm_tmp > 180: azm_tmp -= 360
-        axx1[l].plot(azm_tmp, df_tmp.loc[latc_list[l],
-                     'lfit_vel'], marker='*', markersize=10, mec='r', mfc='r')
+        axx1[l].plot(azm_tmp, vel_tmp, marker='*',
+                     markersize=10, mec='r', mfc='r')
 
 #        # set the number of yticks
 #        locator = MaxNLocator(nbins=3)
@@ -570,6 +573,24 @@ def plot_losvel_az(radars, df_lfitvel, color_list, stime,
         
         # change yticklabel size
         axx1[l].yaxis.set_tick_params(labelsize=7)
+
+        # mark the peak position
+        fsz = 5
+        axx1[l].annotate('vel=' + '{0:.01f}'.format(vel_tmp) , xy = (0.02, 0.88),
+                         xycoords='axes fraction', horizontalalignment='left',
+                         verticalalignment='bottom', fontsize=fsz)
+        axx1[l].annotate('azm=' + '{0:.01f}'.format(azm_tmp) +'$^\circ$', xy = (0.015, 0.78),
+                         xycoords='axes fraction', horizontalalignment='left',
+                         verticalalignment='bottom', fontsize=fsz)
+    
+        # fitting error values
+        ax.annotate('vel_std=' + '{0:.01f}'.format(vel_err_tmp) , xy = (0.02, 0.74),
+                    xycoords='axes fraction', horizontalalignment='left',
+                    verticalalignment='bottom', fontsize=fsz) 
+#        ax.annotate('azm_std=' + '{0:.01f}'.format(vel_dir_err) +'$^\circ$' , xy = (0.02, 0.66),
+#                     xycoords='axes fraction', horizontalalignment='left',
+#                     verticalalignment='bottom', fontsize=fsz) 
+
     
     scale_tmp = [-150, 150]
     df_fit.plot(subplots=True, ax=axx1, linestyle='--', marker='.', markersize=2,
