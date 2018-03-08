@@ -1,3 +1,6 @@
+import matplotlib
+matplotlib.use("Agg")
+
 class sdvel_on_map(object):
     """ A class to load and overlay various types of radar data """
 
@@ -23,9 +26,6 @@ class sdvel_on_map(object):
         self.channel = channel
         self.ax = ax
 
-	# load the data, create sites and fovs for rads
-	self.data = self._load_sddata()
-
         # Create a map
         map_obj = utils.mapObj(coords=coords, projection='stere',
 			       width=map_width, height=map_height,
@@ -48,7 +48,12 @@ class sdvel_on_map(object):
 				    lat_0=map_lat0, lon_0=map_lon0,
 				    llcrnrlon=llcrnrlon, llcrnrlat=llcrnrlat,
 				    urcrnrlon=urcrnrlon, urcrnrlat=urcrnrlat,
+                                    fill_alpha=1.0, fillContinents="None",
 				    datetime=stime)
+
+	# load the data, create sites and fovs for rads
+	self.data = self._load_sddata()
+
         self.gridded_losvel = None
 
     def _load_sddata(self):
@@ -551,7 +556,8 @@ class sdvel_on_map(object):
                          lat_lim=[50., 90.], vel_err_ratio_lim=0.5,
 			 all_lfitvel=False, hybrid_2Dvel=False,
 			 nazmslim_pr_grid=1, OLS=False,
-                         fitting_diagnostic_plot=False, vel_scale=[-150, 150]):
+                         fitting_diagnostic_plot=False, fig_dir="./",
+			 vel_scale=[-150, 150]):
         """Calculates the 2-D flow vectors and overlay them on a map"""
     
         from funcs import sdvel_lfit, plot_losvel_az
@@ -571,18 +577,21 @@ class sdvel_on_map(object):
             except ValueError:
                 df_lfitvel_list.append(None)
                 continue
+
             df_lfitvel = sdvel_lfit(self.map_obj, df_griddedvel,
                                     npntslim_lfit=npntslim_lfit, OLS=OLS)
             df_lfitvel_list.append(df_lfitvel)
 
             # Filter based on lat range
-            df_lfitvel = df_lfitvel.loc[(df_lfitvel['latc'] >= lat_lim[0]) &\
-                                        (df_lfitvel['latc'] <= lat_lim[1]), :]
+            if df_lfitvel is not None:
+                df_lfitvel = df_lfitvel.loc[(df_lfitvel['latc'] >= lat_lim[0]) &\
+                                            (df_lfitvel['latc'] <= lat_lim[1]), :]
 
             # Filter based on fitting quality
-            df_lfitvel = df_lfitvel.loc[df_lfitvel['lfit_vel_err'].as_matrix() /\
-                                        np.abs(df_lfitvel['lfit_vel'].as_matrix()) <\
-                                        vel_err_ratio_lim, :]
+            if df_lfitvel is not None:
+                df_lfitvel = df_lfitvel.loc[df_lfitvel['lfit_vel_err'].as_matrix() /\
+                                            np.abs(df_lfitvel['lfit_vel'].as_matrix()) <\
+                                            vel_err_ratio_lim, :]
 
             if all_lfitvel and (df_lfitvel is not None):
 
@@ -616,7 +625,7 @@ class sdvel_on_map(object):
                 #plot the i-s as filled circles
                 ccoll = self.ax.scatter(np.array(verts[0]),np.array(verts[1]),
                                 #s=.1*np.array(intensities[1])[inx],zorder=10,marker='o',
-                                s=3.0,zorder=10,marker='o', c=np.abs(np.array(intensities)),
+                                s=2.0,zorder=10,marker='o', c=np.abs(np.array(intensities)),
                                 linewidths=.5, edgecolors='face',cmap=cmap,norm=norm)
 
                 self.ax.add_collection(ccoll)
@@ -630,8 +639,8 @@ class sdvel_on_map(object):
                                            filter(lambda x: len(x)==1)
             df2_griddedvel = df_griddedvel.groupby(['latc', 'lonc'], as_index=False).\
                                            filter(lambda x: len(x)==2)
-            df1_lfitvel = df_lfitvel.groupby(['latc', 'lonc']).\
-                                     filter(lambda x: len(x)==1)
+            #df1_lfitvel = df_lfitvel.groupby(['latc', 'lonc']).\
+            #                         filter(lambda x: len(x)==1)
             if hybrid_2Dvel:
                 pass
 #                # Find 2D vector if overlapped los vels exist
@@ -719,12 +728,14 @@ class sdvel_on_map(object):
             self.lfitvel_mappable=lfitvel_mappable
 
             if fitting_diagnostic_plot:
-                color_list = ['r', 'b', 'g', 'c', 'm', 'k']
-                latc_list = [x + 0.5 for x in range(53, 60)]
-                #latc_list=None
-                plot_losvel_az(rds, df_lfitvel, color_list,
-                               self.stime, self.interval,
-                               latc_list=latc_list, vel_scale=vel_scale)
+                if df_lfitvel is not None:
+                    color_list = ['r', 'b', 'g', 'c', 'm', 'k']
+                    latc_list = [x + 0.5 for x in range(53, 63)]
+                    #latc_list=None
+                    plot_losvel_az(rds, df_lfitvel, color_list,
+                                   self.stime, self.interval,
+                                   latc_list=latc_list, fig_dir=fig_dir,
+				   vel_scale=vel_scale)
         self.lfitvel = df_lfitvel_list
         return
 
@@ -758,11 +769,21 @@ class sdvel_on_map(object):
 	x1, y1 = self.map_obj(df.Mlon.as_matrix(),
 			      df.Mlat.as_matrix())
 
-	ccoll = self.map_obj.ax.scatter(x1, y1, s=3.0, zorder=zorder,
-					marker='o', c=df.med_tec.as_matrix(),
+	ccoll = self.map_obj.ax.scatter(x1, y1, s=30.0, zorder=zorder,
+					marker="s", c=df.med_tec.as_matrix(),
 					linewidths=.5, edgecolors='face',
 					cmap=cmap,norm=norm)
-	
+
+#	import pdb
+#	pdb.set_trace()
+#	
+#	ccoll = self.map_obj.pcolor(x1, y1, df.med_tec.as_matrix(),
+#				    alpha=1.0, zorder=zorder,
+#				    vmin=0., vmax=5.,
+#				    cmap=cmap, norm=norm)
+
+        self.tec_mappable = ccoll
+
         return 
 
     def overlay_poes(self, pltDate=None, selTime=None,
@@ -794,7 +815,7 @@ class sdvel_on_map(object):
             # two ways to overlay estimated boundary!
             # poesPltObj.overlay_equ_bnd(selTime, self.map_obj, self.ax,rawSatDir)
             poesPltObj.overlay_equ_bnd(selTime, self.map_obj, self.ax,\
-                                       inpFileName=inpFileName)
+                                       inpFileName=inpFileName, linecolor="white")
 
         return
 
@@ -821,7 +842,7 @@ def add_cbar(fig, mappable, label="Velocity [m/s]", cax=None,
     #set colorbar ticklabel size
     for ti in cbar.ax.get_yticklabels():
         ti.set_fontsize(ytick_label_size)
-    cbar.set_label('Velocity [m/s]',size=title_size)
+    cbar.set_label(label, size=title_size)
     cbar.extend='max'
 
 if __name__ == "__main__":
@@ -831,115 +852,147 @@ if __name__ == "__main__":
     from matplotlib.colors import ListedColormap as lcm
     from matplotlib.colors import BoundaryNorm, Normalize
     import matplotlib.cm
+    import os
 
-    fig, ax = plt.subplots(figsize=(8,6))
-    stime = dt.datetime(2013, 1, 2, 6, 0)
-    #stime = dt.datetime(2015, 4, 9, 7, 30)
+    #stime = dt.datetime(2013, 1, 2, 7, 0)
+    stime = dt.datetime(2013, 11, 14, 6, 0)
+    #stime = dt.datetime(2015, 4, 9, 6, 10)
     interval = 2*60
-    etime = stime+dt.timedelta(seconds=interval)
-    coords = "mlt"
-    rads = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
-    #rads = ["cve", "cvw"]
-    #vel_scale=[-200,200]
-    vel_scale=[-150,150]
 
-#    # customized cmap
-#    cmj = matplotlib.cm.jet
-#    cmpr = matplotlib.cm.prism
-#    cmap = lcm([cmj(.95), cmj(.85), cmj(.79), cmpr(.142), cmj(.45), cmj(.3), cmj(.1)])
-#    bounds = np.round(np.linspace(vel_scale[0], vel_scale[1], 7))
+    nums_itr = 5     # number of interation
+    #nums_itr = 1     # number of interation
+    dtms = [stime + dt.timedelta(seconds=x) for x in range(0, interval * nums_itr, interval)]
+    for stime in dtms:
+
+	# Create a folder for a date
+	fig_dir = "../plots/scan_plot/" + stime.strftime("%Y%m%d") + "/"
+	if not os.path.exists(fig_dir):
+	    os.makedirs(fig_dir)
+
+	etime = stime+dt.timedelta(seconds=interval)
+	coords = "mlt"
+	rads = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+	#rads = ["cve", "cvw"]
+	#vel_scale=[-200,200]
+	#vel_scale=[-150,150]
+	vel_scale=[-50,50]
+
+	fig, ax = plt.subplots(figsize=(8,6))
+    #    # customized cmap
+    #    cmj = matplotlib.cm.jet
+    #    cmpr = matplotlib.cm.prism
+    #    cmap = lcm([cmj(.95), cmj(.85), cmj(.79), cmpr(.142), cmj(.45), cmj(.3), cmj(.1)])
+    #    bounds = np.round(np.linspace(vel_scale[0], vel_scale[1], 7))
+    #
+	color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
+	cmap_lfit = lcm(color_list)
+	#bounds_lfit = [0., 8, 17, 25, 33, 42, 10000]
+	bounds_lfit = [int(x) for x in np.linspace(0, vel_scale[1], 6)]
+	bounds_lfit.append(1000)
+	norm_lfit = BoundaryNorm(boundaries=bounds_lfit,
+				 ncolors=len(bounds_lfit)-1)
+
+	#cmap_lfit = "nipy_spectral"
+	#norm_lfit = Normalize(vmin=0,vmax=vel_scale[1])
+
+	cmap = "jet_r"
+	#norm = None
+	norm = Normalize(vmin=vel_scale[0],vmax=vel_scale[1])
+
+	# create an obj
+	obj = sdvel_on_map(ax, rads, stime, interval=interval,
+			   map_lat0=67, map_lon0=0,
+			   map_width=80*111e3, 
+			   map_height=45*111e3, 
+			   map_resolution='l', 
+			   coords=coords,
+			   channel=None,
+			   fileType="fitacf")
+
+#####################################################################
+#	# Overlay LOS velocity data 
+#	obj.overlay_raw_data(param="velocity",
+#			     gsct=0, fill=True,
+#			     velscl=1000.,
+#			     srange_lim=[450, 2000],
+#			     zorder=4,alpha=0.7,
+#			     cmap=cmap,norm=norm)
 #
-    color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
-    cmap_lfit = lcm(color_list)
-    #bounds_lfit = [0., 8, 17, 25, 33, 42, 10000]
-    bounds_lfit = [int(x) for x in np.linspace(0, vel_scale[1], 6)]
-    bounds_lfit.append(1000)
-    norm_lfit = BoundaryNorm(boundaries=bounds_lfit,
-                             ncolors=len(bounds_lfit)-1)
+#        # Add colorbar for LOS Vel.
+#        add_cbar(fig, obj.losvel_mappable, label="Velocity [m/s]", cax=None,
+#                 ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
+#####################################################################
+	# Overlay Radar Names
+	obj.overlay_radName()
 
-    #cmap_lfit = "nipy_spectral"
-    #norm_lfit = Normalize(vmin=0,vmax=vel_scale[1])
+#        # Overlay Radar FoVs
+#        obj.overlay_radFov(maxGate=50)
 
-    cmap = "jet_r"
-    #norm = None
-    norm = Normalize(vmin=vel_scale[0],vmax=vel_scale[1])
+	# Overlay Grids
+	obj.overlay_grids(lat_min=20, lat_max=90, dlat=1,
+			  zorder=2, half_dlat_offset=False)
 
-    # create an obj
-    obj = sdvel_on_map(ax, rads, stime, interval=interval,
-		       map_lat0=70, map_lon0=0,
-		       map_width=90*111e3, 
-		       map_height=50*111e3, 
-		       map_resolution='l', 
-		       coords=coords,
-		       channel=None,
-		       fileType="fitacf")
+#####################################################################
+	# Calculate gridded LOS velocity
+	obj.calc_gridded_losvel(lat_min=30, lat_max=90, dlat=1,
+				srange_lim=[450, 2000],
+				min_npnts=1,
+				half_dlat_offset=False)
 
-    # Overlay LOS velocity data 
-    obj.overlay_raw_data(param="velocity",
-			 gsct=0, fill=True,
-			 velscl=1000.,
-			 srange_lim=[450, 2000],
-			 zorder=4,alpha=0.7,
-			 cmap=cmap,norm=norm)
+        # Overlay gridded LOS velocity
+        obj.overlay_gridded_losvel(zorder=10, vel_lim=[-500, 500],
+    			       cmap=cmap, norm=norm, velscl=1000.)
 
-    # Overlay Radar Names
-    obj.overlay_radName()
+	# Overlay L-shell fitted velocity
+	obj.overlay_2D_sdvel(npntslim_lfit=5, lat_lim=[53, 70],
+			     rad_groups=[["wal", "bks"], ["fhe", "fhw"],
+					 ["cve", "cvw"], ["ade", "adw"]],
+			     cmap=cmap_lfit,norm=norm_lfit, velscl=4000.0, 
+			     lfit_vel_max_lim=None, vel_err_ratio_lim=2.2,
+			     all_lfitvel=True, hybrid_2Dvel=False,
+			     nazmslim_pr_grid=1, OLS=False,
+			     fitting_diagnostic_plot=True, fig_dir=fig_dir, 
+			     vel_scale=[-60, 60])
 
-#    # Overlay Radar FoVs
-#    obj.overlay_radFov(maxGate=50)
+	# Add colorbar for L-Shell Fit Vel.
+	add_cbar(fig, obj.lfitvel_mappable, label="Velocity [m/s]", cax=None,
+		 ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
 
-    # Overlay Grids
-    obj.overlay_grids(lat_min=20, lat_max=90, dlat=1,
-		      zorder=2, half_dlat_offset=False)
+#####################################################################
+	# Overlay GPS TEC data
+	cmap='gist_gray_r'
+	#cmap='jet'
+	norm = Normalize(vmin=0., vmax=10.)
+	obj.overlay_tec(ctime=None, cmap=cmap, norm=norm,
+			zorder=1, inpDir = "/sd-data/med_filt_tec/")
 
-    # Calculate gridded LOS velocity
-    obj.calc_gridded_losvel(lat_min=30, lat_max=90, dlat=1,
-			    srange_lim=[450, 2000],
-			    min_npnts=1,
-			    half_dlat_offset=False)
+	# Add colorbar for TEC.
+	add_cbar(fig, obj.tec_mappable, label="TEC [TECU]", cax=None,
+		 ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
+#####################################################################
 
-#    # Overlay gridded LOS velocity
-#    obj.overlay_gridded_losvel(zorder=10, vel_lim=[-500, 500],
-#			       cmap=cmap, norm=norm, velscl=1000.)
+#	# Overlay POES data
+#	obj.overlay_poes(pltDate=None, selTime=None,
+#			 #satList=["m01", "m02", "mgo", "n15", "n17", "n18", "n19"],
+#			 plotCBar=False, cbar_shrink=0.5,
+#			 rawSatDir="../../data/poes/raw/",
+#			 inpFileDir="../../data/poes/bnd/")
 
-    obj.overlay_2D_sdvel(npntslim_lfit=15, lat_lim=[53, 70],
-                         rad_groups=[["wal", "bks"], ["fhe", "fhw"],
-                                     ["cve", "cvw"], ["ade", "adw"]],
-			 cmap=cmap_lfit,norm=norm_lfit, velscl=2000.0, 
-			 lfit_vel_max_lim=None, vel_err_ratio_lim=0.3,
-			 all_lfitvel=True, hybrid_2Dvel=False,
-			 nazmslim_pr_grid=1, OLS=False,
-                         fitting_diagnostic_plot=True, vel_scale=vel_scale)
+#####################################################################
 
-    # Overlay GPS TEC data
-    obj.overlay_tec(ctime=None, cmap='gist_gray_r',
-		    zorder=2, inpDir = "/sd-data/med_filt_tec/")
+	# Add title 
+	ax.set_title(stime.strftime('%b/%d/%Y   ') +\
+		     stime.strftime('%H:%M - ')+\
+		     etime.strftime('%H:%M  UT'))
 
+	# Save the figure
+	#txt = "raw_los_"
+	txt = "lfitvel_test_"
+	fig_name =  txt +\
+		   stime.strftime("%Y%m%d.%H%M") + "_to_" +\
+		   etime.strftime("%Y%m%d.%H%M")
+	fig.savefig( fig_dir + fig_name +\
+		    ".png", dpi=200, bbox_inches="tight")
 
-    # Overlay POES data
-    obj.overlay_poes(pltDate=None, selTime=None,
-		     #satList=["m01", "m02", "mgo", "n15", "n17", "n18", "n19"],
-		     plotCBar=False, cbar_shrink=0.5,
-		     rawSatDir="../../data/poes/raw/",
-		     inpFileDir="../../data/poes/bnd/")
-
-#    # Add colorbar for LOS Vel.
-#    add_cbar(fig, obj.losvel_mappable, label="Velocity [m/s]", cax=None,
-#             ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
-
-    # Add colorbar for L-Shell Fit Vel.
-    add_cbar(fig, obj.lfitvel_mappable, label="Velocity [m/s]", cax=None,
-             ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
-
-
-    # Add title 
-    ax.set_title(stime.strftime('%b/%d/%Y   ') +\
-		 stime.strftime('%H:%M - ')+\
-                 etime.strftime('%H:%M  UT'))
-    fig.savefig("../plots/scan_plot/" + \
-                stime.strftime("%Y%m%d.%H%M") +\
-                "_to_" + etime.strftime("%Y%m%d.%H%M") +\
-		".png", dpi=200, bbox_inches="tight")
-
-#    obj.show_map()
+    #    obj.show_map()
 
