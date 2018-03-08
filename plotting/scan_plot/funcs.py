@@ -12,6 +12,7 @@ def pol2cart(phi, rho):
 
 
 def convert_to_datetime(row):
+    import datetime as dt
     currDateStr = str( int( row["dateStr"] ) )
 #     return currDateStr
     if row["timeStr"] < 10:
@@ -22,7 +23,7 @@ def convert_to_datetime(row):
         currTimeStr = "0" + str( int( row["timeStr"] ) )
     else:
         currTimeStr = str( int( row["timeStr"] ) )
-    return datetime.datetime.strptime( currDateStr\
+    return dt.datetime.strptime( currDateStr\
                     + ":" + currTimeStr, "%Y%m%d:%H%M" )
 
 def ace_read(sTime, eTime, res=1):
@@ -514,7 +515,8 @@ def merge_2losvecs (myMap, df2_griddedvel, velscl=1000., dist=1000.):
     return df2_merged
 
 def plot_losvel_az(radars, df_lfitvel, color_list, stime,
-                   interval, latc_list=None, vel_scale=[-150, 150]):
+                   interval, latc_list=None, 
+                   vel_scale=[-150, 150], fig_dir="../plots/scan_plot/"):
     """
     This plots losvel data that go into fitting process.
     This function is called within overlay_2D_sdvel function.
@@ -532,7 +534,7 @@ def plot_losvel_az(radars, df_lfitvel, color_list, stime,
     npanels = len(latc_list)
 
     # plot the data that goes into a fitting
-    figg1, axx1 = plt.subplots(npanels,1, sharex=True)
+    figg1, axx1 = plt.subplots(npanels,1, sharex=True, figsize=(6, 12))
     for r in range(len(radars)):
         latc_list_indv = [x for x in latc_list\
                           if x in df_lfitvel.ix[radars[r]].latc.unique()]
@@ -565,7 +567,10 @@ def plot_losvel_az(radars, df_lfitvel, color_list, stime,
     df_tmp = df_lfitvel[['latc', 'lfit_azm', 'lfit_vel', 'lfit_vel_err']]
     df_tmp = df_tmp.groupby(['latc'], as_index=False).first()
     df_tmp = df_tmp.set_index(['latc'])
-    df_tmp = df_tmp.loc[latc_list, :]
+    try:
+        df_tmp = df_tmp.loc[latc_list, :]
+    except:
+        return
    
     df_fit = pd.DataFrame(data=0, index=np.arange(361) - 180, columns=latc_list)
     for l in range(len(latc_list)):
@@ -605,10 +610,10 @@ def plot_losvel_az(radars, df_lfitvel, color_list, stime,
                       ha='center',size=12,weight=550)
     
     #handle the outputs
-    figg1.savefig('../plots/scan_plot/panelplot_' + "_".join(radars)  + "_" +\
+    figg1.savefig(fig_dir + 'panelplot_' + "_".join(radars)  + "_" +\
                   stime.strftime("%Y%m%d.%H%M") + "_to_" +\
                   (stime+dt.timedelta(seconds=interval)).strftime("%Y%m%d.%H%M")+\
-                  '.png', dpi=300)
+                  '.png', dpi=300, bbox_inches="tight")
 
     plt.close(figg1)
 
