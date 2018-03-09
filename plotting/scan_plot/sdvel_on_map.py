@@ -570,13 +570,15 @@ class sdvel_on_map(object):
         # Do L-shell fitting for each radar groups
         for rds in rad_groups:
             try:
-                indx = [self.rads.index(x) for x in rds \
-                        if self.gridded_losvel[self.rads.index(x)] is not None]
+                indx = [self.rads.index(x) for x in rds]
                 df_griddedvel = pd.concat([self.gridded_losvel[x] for x in indx], 
                                           keys=[self.rads[x] for x in indx])
             except ValueError:
                 df_lfitvel_list.append(None)
                 continue
+
+            import pdb
+            pdb.set_trace()
 
             df_lfitvel = sdvel_lfit(self.map_obj, df_griddedvel,
                                     npntslim_lfit=npntslim_lfit, OLS=OLS)
@@ -732,7 +734,8 @@ class sdvel_on_map(object):
                     color_list = ['r', 'b', 'g', 'c', 'm', 'k']
                     latc_list = [x + 0.5 for x in range(53, 63)]
                     #latc_list=None
-                    plot_losvel_az(rds, df_lfitvel, color_list,
+                    rds_remain = [x for x in df_griddedvel.index.get_level_values(0).unique()]
+                    plot_losvel_az(rds_remain, df_lfitvel, color_list,
                                    self.stime, self.interval,
                                    latc_list=latc_list, fig_dir=fig_dir,
 				   vel_scale=vel_scale)
@@ -774,8 +777,6 @@ class sdvel_on_map(object):
 					linewidths=.5, edgecolors='face',
 					cmap=cmap,norm=norm)
 
-#	import pdb
-#	pdb.set_trace()
 #	
 #	ccoll = self.map_obj.pcolor(x1, y1, df.med_tec.as_matrix(),
 #				    alpha=1.0, zorder=zorder,
@@ -815,7 +816,8 @@ class sdvel_on_map(object):
             # two ways to overlay estimated boundary!
             # poesPltObj.overlay_equ_bnd(selTime, self.map_obj, self.ax,rawSatDir)
             poesPltObj.overlay_equ_bnd(selTime, self.map_obj, self.ax,\
-                                       inpFileName=inpFileName, linecolor="white")
+                                       inpFileName=inpFileName,
+                                       linewidth=1, linecolor="red")
 
         return
 
@@ -854,12 +856,33 @@ if __name__ == "__main__":
     import matplotlib.cm
     import os
 
+    # Control parameters 
+    sddata_type = "raw_los" 
+    #sddata_type = "grid_los" 
+    #sddata_type = "lfitvel" 
+    overlay_poes_data = True 
+    overlay_tec_data = True
+    if overlay_poes_data:
+        fig_txt = sddata_type + "_poes"
+    else:
+        fig_txt = sddata_type + ""
+
+    vel_scale=[-100,100]
+    vel_scale_los_az=[-200,200]
+
+#    vel_scale=[-50,60]
+#    vel_scale_los_az=[-60,60]
+
     #stime = dt.datetime(2013, 1, 2, 7, 0)
-    stime = dt.datetime(2013, 11, 14, 6, 0)
+    #stime = dt.datetime(2013, 1, 18, 3, 40)
+    #stime = dt.datetime(2013, 11, 14, 5, 30)
+    #stime = dt.datetime(2013, 2, 4, 5, 30)
+    stime = dt.datetime(2013, 2, 21, 3, 50)
+    #stime = dt.datetime(2013, 11, 8, 4, 0)
     #stime = dt.datetime(2015, 4, 9, 6, 10)
     interval = 2*60
 
-    nums_itr = 5     # number of interation
+    nums_itr = 5*30     # number of interation
     #nums_itr = 1     # number of interation
     dtms = [stime + dt.timedelta(seconds=x) for x in range(0, interval * nums_itr, interval)]
     for stime in dtms:
@@ -871,11 +894,8 @@ if __name__ == "__main__":
 
 	etime = stime+dt.timedelta(seconds=interval)
 	coords = "mlt"
-	rads = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+	rads = ["wal", "bks", "fhe", "fhw", "cve", "cvw"]
 	#rads = ["cve", "cvw"]
-	#vel_scale=[-200,200]
-	#vel_scale=[-150,150]
-	vel_scale=[-50,50]
 
 	fig, ax = plt.subplots(figsize=(8,6))
     #    # customized cmap
@@ -910,17 +930,18 @@ if __name__ == "__main__":
 			   fileType="fitacf")
 
 #####################################################################
-#	# Overlay LOS velocity data 
-#	obj.overlay_raw_data(param="velocity",
-#			     gsct=0, fill=True,
-#			     velscl=1000.,
-#			     srange_lim=[450, 2000],
-#			     zorder=4,alpha=0.7,
-#			     cmap=cmap,norm=norm)
-#
-#        # Add colorbar for LOS Vel.
-#        add_cbar(fig, obj.losvel_mappable, label="Velocity [m/s]", cax=None,
-#                 ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
+        if sddata_type == "raw_los":
+            # Overlay LOS velocity data 
+            obj.overlay_raw_data(param="velocity",
+                                 gsct=0, fill=True,
+                                 velscl=1000.,
+                                 srange_lim=[450, 2000],
+                                 zorder=4,alpha=0.7,
+                                 cmap=cmap,norm=norm)
+
+            # Add colorbar for LOS Vel.
+            add_cbar(fig, obj.losvel_mappable, label="Velocity [m/s]", cax=None,
+                     ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
 #####################################################################
 	# Overlay Radar Names
 	obj.overlay_radName()
@@ -933,50 +954,59 @@ if __name__ == "__main__":
 			  zorder=2, half_dlat_offset=False)
 
 #####################################################################
-	# Calculate gridded LOS velocity
-	obj.calc_gridded_losvel(lat_min=30, lat_max=90, dlat=1,
-				srange_lim=[450, 2000],
-				min_npnts=1,
-				half_dlat_offset=False)
+        if sddata_type == "lfitvel" or sddata_type == "grid_los":
+            # Calculate gridded LOS velocity
+            obj.calc_gridded_losvel(lat_min=30, lat_max=90, dlat=1,
+                                    srange_lim=[450, 2000],
+                                    min_npnts=1,
+                                    half_dlat_offset=False)
 
-        # Overlay gridded LOS velocity
-        obj.overlay_gridded_losvel(zorder=10, vel_lim=[-500, 500],
-    			       cmap=cmap, norm=norm, velscl=1000.)
+        if sddata_type == "grid_los":
+            # Overlay gridded LOS velocity
+            obj.overlay_gridded_losvel(zorder=10, vel_lim=[-500, 500],
+        			       cmap=cmap, norm=norm, velscl=1000.)
 
-	# Overlay L-shell fitted velocity
-	obj.overlay_2D_sdvel(npntslim_lfit=5, lat_lim=[53, 70],
-			     rad_groups=[["wal", "bks"], ["fhe", "fhw"],
-					 ["cve", "cvw"], ["ade", "adw"]],
-			     cmap=cmap_lfit,norm=norm_lfit, velscl=4000.0, 
-			     lfit_vel_max_lim=None, vel_err_ratio_lim=2.2,
-			     all_lfitvel=True, hybrid_2Dvel=False,
-			     nazmslim_pr_grid=1, OLS=False,
-			     fitting_diagnostic_plot=True, fig_dir=fig_dir, 
-			     vel_scale=[-60, 60])
+            # Add colorbar for gridded LOS Vel.
+            add_cbar(fig, obj.gridded_losvel_mappable, label="Velocity [m/s]", cax=None,
+                     ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
 
-	# Add colorbar for L-Shell Fit Vel.
-	add_cbar(fig, obj.lfitvel_mappable, label="Velocity [m/s]", cax=None,
-		 ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
+
+        if sddata_type == "lfitvel":
+            # Overlay L-shell fitted velocity
+            obj.overlay_2D_sdvel(npntslim_lfit=10, lat_lim=[53, 70],
+                                 rad_groups=[["wal", "bks"], ["fhe", "fhw"],
+                                             ["cve", "cvw"], ["ade", "adw"]],
+                                 cmap=cmap_lfit,norm=norm_lfit, velscl=4000.0, 
+                                 lfit_vel_max_lim=None, vel_err_ratio_lim=0.2,
+                                 all_lfitvel=True, hybrid_2Dvel=False,
+                                 nazmslim_pr_grid=1, OLS=False,
+                                 fitting_diagnostic_plot=True, fig_dir=fig_dir, 
+                                 vel_scale=vel_scale_los_az)
+
+            # Add colorbar for L-Shell Fit Vel.
+            add_cbar(fig, obj.lfitvel_mappable, label="Velocity [m/s]", cax=None,
+                     ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
 
 #####################################################################
-	# Overlay GPS TEC data
-	cmap='gist_gray_r'
-	#cmap='jet'
-	norm = Normalize(vmin=0., vmax=10.)
-	obj.overlay_tec(ctime=None, cmap=cmap, norm=norm,
-			zorder=1, inpDir = "/sd-data/med_filt_tec/")
+        if overlay_tec_data:
+            # Overlay GPS TEC data
+            cmap='gist_gray_r'
+            #cmap='jet'
+            norm = Normalize(vmin=0., vmax=10.)
+            obj.overlay_tec(ctime=None, cmap=cmap, norm=norm,
+                            zorder=1, inpDir = "/sd-data/med_filt_tec/")
 
-	# Add colorbar for TEC.
-	add_cbar(fig, obj.tec_mappable, label="TEC [TECU]", cax=None,
-		 ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
+            # Add colorbar for TEC.
+            add_cbar(fig, obj.tec_mappable, label="TEC [TECU]", cax=None,
+                     ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
 #####################################################################
-
-#	# Overlay POES data
-#	obj.overlay_poes(pltDate=None, selTime=None,
-#			 #satList=["m01", "m02", "mgo", "n15", "n17", "n18", "n19"],
-#			 plotCBar=False, cbar_shrink=0.5,
-#			 rawSatDir="../../data/poes/raw/",
-#			 inpFileDir="../../data/poes/bnd/")
+        if overlay_poes_data:
+            # Overlay POES data
+            obj.overlay_poes(pltDate=None, selTime=None,
+                             satList=["m01", "m02", "n15", "n16", "n17", "n18", "n19"],
+                             plotCBar=False, cbar_shrink=0.5,
+                             rawSatDir="../../data/poes/raw/",
+                             inpFileDir="../../data/poes/bnd/")
 
 #####################################################################
 
@@ -986,13 +1016,12 @@ if __name__ == "__main__":
 		     etime.strftime('%H:%M  UT'))
 
 	# Save the figure
-	#txt = "raw_los_"
-	txt = "lfitvel_test_"
-	fig_name =  txt +\
+	fig_name = fig_txt + "_" +\
 		   stime.strftime("%Y%m%d.%H%M") + "_to_" +\
 		   etime.strftime("%Y%m%d.%H%M")
 	fig.savefig( fig_dir + fig_name +\
 		    ".png", dpi=200, bbox_inches="tight")
+        plt.close(fig)
 
     #    obj.show_map()
 
