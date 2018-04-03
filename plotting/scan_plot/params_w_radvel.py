@@ -124,10 +124,10 @@ def params_panel_plot(stime, etime,
     axes[-1].xaxis.set_tick_params(labelsize=11)
     if (etime-stime).days > 0:
         axes[0].set_title('  ' + 'Date: ' +\
-                stime.strftime("%Y/%m/%d") + ' - ' + (etime-dt.timedelta(days=1)).strftime("%Y/%m/%d")\
+                stime.strftime("%m/%d/%Y") + ' - ' + (etime-dt.timedelta(days=1)).strftime("%m/%d/%Y")\
                 + '    ACE SW data')
     else:
-        axes[0].set_title(stime.strftime("%Y/%m/%d"))
+        axes[0].set_title(stime.strftime("%m/%d/%Y"))
 
     return fig
 
@@ -333,9 +333,77 @@ def plot_ae(stime, etime, ax_ae, ylim_ae=[0, 500], ylabel_fontsize=9,
 
     return
 
+def plot_aualae(stime, etime, ylim_au=[0, 500],
+                ylim_al=[-500, 0], ylim_ae=[0, 500], ylabel_fontsize=9,
+                marker='.', linestyle='--', markersize=2):
+
+    import ae
+
+    fig, axes = plt.subplots(nrows=3, ncols=1, sharex=True)
+    # read AE data
+    AE_list = ae.readAeWeb(sTime=stime,eTime=etime,res=1)
+    #AE_list = gme.ind.readAeWeb(sTime=stime,eTime=etime,res=1)
+    #AE_list = gme.ind.readAe(sTime=stime,eTime=etime,res=1)
+    AE = []
+    AU = []
+    AL = []
+    AE_time = []
+    for m in range(len(AE_list)):
+        AU.append(AE_list[m].au)
+        AL.append(AE_list[m].al)
+        AE.append(AE_list[m].ae)
+        AE_time.append(AE_list[m].time)
+
+    # plot AU, AL, AE
+    indx = [AE_time.index(x) for x in AE_time if (x>= stime) and (x<=etime)]
+    AE_time = [AE_time[i] for i in indx]
+    AE = [AE[i] for i in indx]
+    
+    ylabels = ["AU", "AL", "AE"]
+    ylims = [ylim_au, ylim_al, ylim_ae]
+    colors = ["k", "g", "r"]
+    for i, var in enumerate([AU, AL, AE]):
+        ax = axes[i]
+        ax.plot_date(AE_time, var, colors[i], marker=marker,
+                     linestyle=linestyle, markersize=markersize)
+        ax.set_ylabel(ylabels[i], fontsize=ylabel_fontsize)
+        ax.set_ylim([ylims[i][0], ylims[i][1]])
+        ax.locator_params(axis='y', nbins=4)
+
+    # format the datetime xlabels
+    if (etime-stime).days >= 2:   
+        axes[-1].xaxis.set_major_formatter(DateFormatter('%m/%d'))
+        locs = axes[-1].xaxis.get_majorticklocs()
+        locs = locs[::2]
+        locs = np.append(locs, locs[-1]+1)
+        axes[-1].xaxis.set_ticks(locs)
+    if (etime-stime).days == 0:   
+        axes[-1].xaxis.set_major_formatter(DateFormatter('%H:%M'))
+
+    # rotate xtick labels
+    plt.setp(axes[-1].get_xticklabels(), rotation=30)
+
+    # set axis label and title
+    axes[-1].set_xlabel('Time UT')
+    axes[-1].xaxis.set_tick_params(labelsize=11)
+    if (etime-stime).days > 0:
+        axes[0].set_title('  ' + 'Date: ' +\
+                stime.strftime("%m/%d/%Y") + ' - ' + (etime-dt.timedelta(days=1)).strftime("%m/%d/%Y")\
+                + '    AU, AL, AE Indices')
+    else:
+        axes[0].set_title(stime.strftime("%m/%d/%Y"))
+
+
+
+    return fig
+
+
 def plot_kp(stime, etime, ax_kp, ylim_kp=[0, 9], ylabel_fontsize=9,
         marker='.', linestyle='--', markersize=2):
+
     import datetime as dt
+    from matplotlib.ticker import MultipleLocator
+
     # Kp data
     #Kp_list = gme.ind.readKp(sTime=stime,eTime=etime)
     stm = dt.datetime(stime.year, stime.month, stime.day)
@@ -364,7 +432,8 @@ def plot_kp(stime, etime, ax_kp, ylim_kp=[0, 9], ylabel_fontsize=9,
     ax_kp.stem(Kp_time, Kp, marketcolor="k", linefmt='k--', marker=marker, markersize=markersize)
     ax_kp.set_ylabel('Kp', fontsize=9)
     ax_kp.set_ylim([ylim_kp[0], ylim_kp[1]])
-    ax_kp.locator_params(axis='y', nbins=4)
+    ax_kp.locator_params(axis='y')
+    ax_kp.yaxis.set_major_locator(MultipleLocator(3))
 
     # Plot hline at kp=2.3
     ax_kp.axhline(y=2.3, color='r', linewidth=0.30, linestyle='--')
@@ -449,14 +518,21 @@ if __name__ == "__main__":
     import os
     import matplotlib.pyplot as plt
 
-    stime = dt.datetime(2013,11,14,3) 
-    etime = dt.datetime(2013,11,14,9) 
+    #stime = dt.datetime(2013,11,14,3) 
+    #etime = dt.datetime(2013,11,14,9) 
+
+    #stime = dt.datetime(2013,2,4,3) 
+    #etime = dt.datetime(2013,2,4,9) 
+
+    stime = dt.datetime(2011,5,29,0) 
+    etime = dt.datetime(2011,5,29,9) 
+
     panel_num = 7; fig_size=(8,10); hspace=None
 
     fig = params_panel_plot(stime, etime,
-                            ylim_V=[300,700], ylim_Pdyn=[0,20],
-                            ylim_IMF=[-5, 5], ylim_theta=[-180, 180],
-                            ylim_symh=[-50, 50], ylim_ae=[0, 100],
+                            ylim_V=[300,800], ylim_Pdyn=[0,20],
+                            ylim_IMF=[-10, 10], ylim_theta=[-180, 180],
+                            ylim_symh=[-100, 50], ylim_ae=[0, 1500],
                             ylim_kp=[0, 9],
                             marker='', linestyle='-',
                             markersize=1, vline=False, panel_num=panel_num,
@@ -484,6 +560,24 @@ if __name__ == "__main__":
 
     # Save the figure
     txt = "indicies_"
+    fig_name = txt +\
+               stime.strftime("%Y%m%d.%H%M") + "_to_" +\
+               etime.strftime("%Y%m%d.%H%M")
+    fig.savefig( fig_dir + fig_name +\
+                ".png", dpi=200, bbox_inches="tight")
+
+    plt.close(fig)
+
+#################################################################
+    # Plot the AU/AL/AE indices
+    ylim_au=[0, 1000]
+    ylim_al=[-ylim_au[1], 0]
+    #ylim_ae=[0, ylim_au[1] - ylim_al[0]]
+    ylim_ae=[0, 1500]
+    fig = plot_aualae(stime, etime, ylim_au=ylim_au,
+                    ylim_al=ylim_al, ylim_ae=ylim_ae, ylabel_fontsize=9,
+                    marker='.', linestyle='--', markersize=2)
+    txt = "au_al_ae_"
     fig_name = txt +\
                stime.strftime("%Y%m%d.%H%M") + "_to_" +\
                etime.strftime("%Y%m%d.%H%M")
