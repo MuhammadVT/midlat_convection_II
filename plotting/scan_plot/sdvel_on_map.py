@@ -125,6 +125,24 @@ class sdvel_on_map(object):
         import matplotlib.pyplot as plt
         plt.show()
 
+        return
+
+    def overlay_terminator(self, lat_range=[30., 90.], lon_range=[-180., 180.],
+                           nlats=50, nlons=50, zorder=8):
+        """Overlayes terminator in self.coords coordinate"""
+
+        from davitpy.utils.calcSun import calcTerminator
+
+        # calculate terminator 
+        lats, lons, zen, term = calcTerminator(self.stime, lat_range,
+                                               lon_range, nlats=nlats,
+                                               nlons=nlons)
+        # Plot the terminator line
+        x, y = self.map_obj(term[:, 1], term[:, 0], coords="geo")
+        self.map_obj.ax.scatter(x, y, facecolors='b',edgecolors='b', s=1.0)
+
+        return
+
 	
     def overlay_radName(self, fontSize=15, annotate=True):
 	""" Overlay radar names """
@@ -151,7 +169,8 @@ class sdvel_on_map(object):
 
     def overlay_raw_data(self, param="velocity",
 			   gsct=0, fill=True,
-			   velscl=1000., srange_lim=[450, 4000],
+			   velscl=1000., vel_lim=[-1000, 1000],
+                           srange_lim=[450, 4000],
 			   zorder=4,alpha=1,
 			   cmap=None,norm=None):
 
@@ -185,6 +204,11 @@ class sdvel_on_map(object):
                     if (myBeam.fit.slist[k] * myBeam.prm.rsep < srange_lim[0]) or\
                        (myBeam.fit.slist[k] * myBeam.prm.rsep > srange_lim[1]): 
 			continue
+
+                    if (myBeam.fit.v[k] < vel_lim[0]) or\
+                       (myBeam.fit.v[k] > vel_lim[1]): 
+			continue
+                    
                     r = myBeam.fit.slist[k]
                     if fill:
                         x1,y1 = self.map_obj(fov.lonFull[myBeam.bmnum,r],
@@ -249,14 +273,14 @@ class sdvel_on_map(object):
                         x = self.map_obj.ax.scatter(\
 				np.array(verts[0])[np.where(np.array(gs_flg)==1)],
                                 np.array(verts[1])[np.where(np.array(gs_flg)==1)],
-			        s=3.0, zorder=zorder,marker='o',linewidths=.5,
+			        s=1.0, zorder=zorder,marker='o',linewidths=.5,
 				facecolors='w',edgecolors='k')
                         self.map_obj.ax.add_collection(x, autolim=True)
         
                     # plot the i-s as filled circles
                     ccoll = self.map_obj.ax.scatter(np.array(verts[0])[inx],
 						    np.array(verts[1])[inx],
-						    s=3.0,zorder=zorder+1,marker='o',
+						    s=1.0,zorder=zorder+1,marker='o',
 						    c=np.array(intensities)[inx],
 						    linewidths=.5, edgecolors='face',
 						    cmap=cmap,norm=norm)
@@ -577,9 +601,6 @@ class sdvel_on_map(object):
                 df_lfitvel_list.append(None)
                 continue
 
-            import pdb
-            pdb.set_trace()
-
             df_lfitvel = sdvel_lfit(self.map_obj, df_griddedvel,
                                     npntslim_lfit=npntslim_lfit, OLS=OLS)
             df_lfitvel_list.append(df_lfitvel)
@@ -635,6 +656,8 @@ class sdvel_on_map(object):
                 lcoll = LineCollection(np.array(lines),linewidths=0.5,zorder=12,cmap=cmap,norm=norm)
                 lcoll.set_array(np.abs(np.array(intensities)))
                 self.ax.add_collection(lcoll)
+            else:
+                lcoll = None
 
             # Seperate overlaped gridded los vel from non-overlaped ones
             df1_griddedvel = df_griddedvel.groupby(['latc', 'lonc'], as_index=False).\
@@ -770,7 +793,7 @@ class sdvel_on_map(object):
 
 	# Overlay the tec data on to a map
 	x1, y1 = self.map_obj(df.Mlon.as_matrix(),
-			      df.Mlat.as_matrix())
+			      df.Mlat.as_matrix(), coords="mag")
 
 	ccoll = self.map_obj.ax.scatter(x1, y1, s=30.0, zorder=zorder,
 					marker="s", c=df.med_tec.as_matrix(),
@@ -798,6 +821,8 @@ class sdvel_on_map(object):
         NOTE: POES data has to be downloaded and processed. 
         
         """
+        #import sys
+        #sys.path.insert(0, "/home/muhammad/softwares/sataurlib/")
         from poes import poes_plot_utils
 	import datetime as dt
         import os
@@ -812,15 +837,54 @@ class sdvel_on_map(object):
             poesPltObj.overlay_closest_sat_pass(selTime, self.map_obj, self.ax,
                                                 rawSatDir, satList=satList,
                                                 plotCBar=plotCBar,
+                                                timeFontSize=4., timeMarkerSize=2.,
+                                                overlayTimeInterval=1, timeTextColor="red",
                                                 cbar_shrink=cbar_shrink)
             # two ways to overlay estimated boundary!
             # poesPltObj.overlay_equ_bnd(selTime, self.map_obj, self.ax,rawSatDir)
             poesPltObj.overlay_equ_bnd(selTime, self.map_obj, self.ax,\
                                        inpFileName=inpFileName,
-                                       linewidth=1, linecolor="red")
+                                       linewidth=1, linecolor="red", line_zorder=7)
 
         return
 
+    def overlay_ssusi(self, pltDate=None, inpTime=None,
+                      plotType="d135", timeDelta=40.,
+		      satList=["F18"],
+		      plotCBar=False, cbar_shrink=0.8, 
+                      ssusiCmap="Greens", alpha=0.6,
+		      inpDir="../../data/ssusi/prcsd/"):
+
+        """Overlays DMSP Satellite SSUSI data
+
+        NOTE: SSUSI data has to be downloaded and processed. 
+        
+        """
+        #import sys
+        #sys.path.insert(0, "/home/muhammad/softwares/sataurlib/")
+        from imagers.ssusi import ssusi_utils
+	import datetime as dt
+        import os
+
+        if inpTime is None:
+            inpTime = self.stime
+	if pltDate is None:
+	    pltDate = dt.datetime(inpTime.year, inpTime.month, inpTime.day)
+        for sat in satList:
+            inpFileName = inpDir + sat + "/" + pltDate.strftime("%Y%m%d") + ".txt"
+            if os.path.isfile(inpFileName):
+                ssusiPltObj = ssusi_utils.UtilsSsusi(inpDir, pltDate)
+                fDict = ssusiPltObj.filter_data_by_time(inpTime, timeDelta=timeDelta)
+                ssusiPltObj.overlay_sat_data(fDict, self.map_obj, self.ax,
+                                             satList=satList, inpTime=inpTime, 
+                                             plotType=plotType, coords=self.coords,
+                                             alpha=alpha, plotCBar=plotCBar,
+                                             overlayTimeInterval=1, timeColor="red",
+                                             timeFontSize=4.,
+                                             ssusiCmap=ssusiCmap,
+                                             cbar_shrink=cbar_shrink)
+
+        return
 
 def add_cbar(fig, mappable, label="Velocity [m/s]", cax=None,
              ax=None, shrink=0.65, title_size=14,
@@ -857,15 +921,22 @@ if __name__ == "__main__":
     import os
 
     # Control parameters 
-    sddata_type = "raw_los" 
+    #sddata_type = "raw_los" 
     #sddata_type = "grid_los" 
-    #sddata_type = "lfitvel" 
-    overlay_poes_data = True 
+    sddata_type = "lfitvel" 
+    overlay_poes_data = False
+    overlay_ssusi_data = False
     overlay_tec_data = True
-    if overlay_poes_data:
+    overlay_terminator_line = True 
+    if overlay_ssusi_data:
+        fig_txt = sddata_type + "_ssusi"
+        rawlos_srange_lim=[450, 4000]
+    elif overlay_poes_data:
         fig_txt = sddata_type + "_poes"
+        rawlos_srange_lim=[450, 4000]
     else:
         fig_txt = sddata_type + ""
+        rawlos_srange_lim=[450, 4000]
 
     vel_scale=[-100,100]
     vel_scale_los_az=[-200,200]
@@ -873,17 +944,33 @@ if __name__ == "__main__":
 #    vel_scale=[-50,60]
 #    vel_scale_los_az=[-60,60]
 
+    stime = dt.datetime(2011, 5, 16, 8, 0)
+    #stime = dt.datetime(2011, 5, 29, 3, 0)
     #stime = dt.datetime(2013, 1, 2, 7, 0)
     #stime = dt.datetime(2013, 1, 18, 3, 40)
     #stime = dt.datetime(2013, 11, 14, 5, 30)
     #stime = dt.datetime(2013, 2, 4, 5, 30)
-    stime = dt.datetime(2013, 2, 21, 3, 50)
+    #stime = dt.datetime(2013, 2, 21, 3, 30)
+    #stime = dt.datetime(2013, 2, 24, 4, 0)
+    #stime = dt.datetime(2013, 3, 17, 5, 30)
+    #stime = dt.datetime(2013, 3, 19, 4, 30)
+    #stime = dt.datetime(2013, 4, 15, 8, 00)
+    #stime = dt.datetime(2013, 5, 14, 7, 20)
+    #stime = dt.datetime(2013, 5, 19, 5, 0)
     #stime = dt.datetime(2013, 11, 8, 4, 0)
-    #stime = dt.datetime(2015, 4, 9, 6, 10)
-    interval = 2*60
+    #stime = dt.datetime(2013, 11, 16, 7, 30)
+    #stime = dt.datetime(2013, 11, 17, 5, 50)
+    #stime = dt.datetime(2013, 12, 27, 5, 50)
+    #stime = dt.datetime(2014, 7, 12, 9, 0)
+    #stime = dt.datetime(2015, 4, 9, 5, 0)
+    if overlay_poes_data or overlay_ssusi_data : 
+        interval = 30*60    # half an hour
+        nums_itr = 1     # number of interation
+    else:
+        interval = 2*60
+        nums_itr = 1*30     # number of interation
+        #nums_itr = 1     # number of interation
 
-    nums_itr = 5*30     # number of interation
-    #nums_itr = 1     # number of interation
     dtms = [stime + dt.timedelta(seconds=x) for x in range(0, interval * nums_itr, interval)]
     for stime in dtms:
 
@@ -894,8 +981,13 @@ if __name__ == "__main__":
 
 	etime = stime+dt.timedelta(seconds=interval)
 	coords = "mlt"
-	rads = ["wal", "bks", "fhe", "fhw", "cve", "cvw"]
+
 	#rads = ["cve", "cvw"]
+	#rads = ["wal", "bks", "fhe", "fhw", "cve", "cvw"]
+        #channel=None
+        # NOTE: Do not forget to set the channel
+	rads = ["wal", "bks", "fhe", "fhw", "cve", "cvw", "ade", "adw"]
+        channel = [None, None, None, None, None, None, 'all', 'all']
 
 	fig, ax = plt.subplots(figsize=(8,6))
     #    # customized cmap
@@ -920,13 +1012,30 @@ if __name__ == "__main__":
 	norm = Normalize(vmin=vel_scale[0],vmax=vel_scale[1])
 
 	# create an obj
+        if overlay_poes_data or overlay_ssusi_data:
+            map_lat0 = 90
+            map_lon0= 0
+            map_width=80*111e3 
+            map_height=80*111e3 
+            #map_lat0 = 67
+            #map_lon0=0
+            #map_width=80*111e3 
+            #map_height=45*111e3 
+        else:
+            map_lat0 = 67
+            map_lon0=0
+            map_width=80*111e3 
+            map_height=45*111e3 
 	obj = sdvel_on_map(ax, rads, stime, interval=interval,
-			   map_lat0=67, map_lon0=0,
-			   map_width=80*111e3, 
-			   map_height=45*111e3, 
+			   map_lat0=map_lat0, map_lon0=0,
+			   map_width=map_width, 
+			   map_height=map_height, 
+			   #map_lat0=90, map_lon0=0,
+			   #map_width=60*111e3, 
+			   #map_height=60*111e3, 
 			   map_resolution='l', 
 			   coords=coords,
-			   channel=None,
+			   channel=channel,
 			   fileType="fitacf")
 
 #####################################################################
@@ -934,8 +1043,8 @@ if __name__ == "__main__":
             # Overlay LOS velocity data 
             obj.overlay_raw_data(param="velocity",
                                  gsct=0, fill=True,
-                                 velscl=1000.,
-                                 srange_lim=[450, 2000],
+                                 velscl=4000., vel_lim=[-1000, 1000],
+                                 srange_lim=rawlos_srange_lim,
                                  zorder=4,alpha=0.7,
                                  cmap=cmap,norm=norm)
 
@@ -963,8 +1072,8 @@ if __name__ == "__main__":
 
         if sddata_type == "grid_los":
             # Overlay gridded LOS velocity
-            obj.overlay_gridded_losvel(zorder=10, vel_lim=[-500, 500],
-        			       cmap=cmap, norm=norm, velscl=1000.)
+            obj.overlay_gridded_losvel(zorder=10, vel_lim=[-200, 200],
+        			       cmap=cmap, norm=norm, velscl=4000.)
 
             # Add colorbar for gridded LOS Vel.
             add_cbar(fig, obj.gridded_losvel_mappable, label="Velocity [m/s]", cax=None,
@@ -984,8 +1093,9 @@ if __name__ == "__main__":
                                  vel_scale=vel_scale_los_az)
 
             # Add colorbar for L-Shell Fit Vel.
-            add_cbar(fig, obj.lfitvel_mappable, label="Velocity [m/s]", cax=None,
-                     ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
+            if obj.lfitvel_mappable:
+                add_cbar(fig, obj.lfitvel_mappable, label="Velocity [m/s]", cax=None,
+                         ax=None, shrink=0.5, title_size=14, ytick_label_size=10)
 
 #####################################################################
         if overlay_tec_data:
@@ -1009,6 +1119,21 @@ if __name__ == "__main__":
                              inpFileDir="../../data/poes/bnd/")
 
 #####################################################################
+        if overlay_ssusi_data:
+            obj.overlay_ssusi(pltDate=None, inpTime=None,
+                              plotType="d135", timeDelta=40.,
+                              satList=["F16", "F17", "F18", "F19"],
+                              plotCBar=False, cbar_shrink=0.8, 
+                              ssusiCmap="Greens", alpha=0.6,
+                              inpDir="../../data/ssusi/prcsd/")
+
+
+#####################################################################
+        if overlay_terminator_line:
+            obj.overlay_terminator(lat_range=[30., 90.], lon_range=[-180., 180.],
+                                   nlats=50, nlons=50, zorder=8)
+
+#####################################################################
 
 	# Add title 
 	ax.set_title(stime.strftime('%b/%d/%Y   ') +\
@@ -1016,6 +1141,7 @@ if __name__ == "__main__":
 		     etime.strftime('%H:%M  UT'))
 
 	# Save the figure
+        #fig_name = "test"
 	fig_name = fig_txt + "_" +\
 		   stime.strftime("%Y%m%d.%H%M") + "_to_" +\
 		   etime.strftime("%Y%m%d.%H%M")
