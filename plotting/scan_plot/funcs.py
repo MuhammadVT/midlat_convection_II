@@ -316,9 +316,11 @@ def calc_azm(myMap, df):
     respect to the pole in myMap.coords system
     """
     import numpy as np
+
     coords = myMap.coords
     time = myMap.datetime
-    dfg = df.groupby(level=0)
+    dfg = df.groupby(level=0, sort=False)
+
     azms = []
     # North pole in the myMap.coords system 
     xp, yp = myMap(0, 90)
