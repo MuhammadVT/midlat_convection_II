@@ -921,13 +921,13 @@ if __name__ == "__main__":
     import os
 
     # Control parameters 
-    #sddata_type = "raw_los" 
+    sddata_type = "raw_los" 
     #sddata_type = "grid_los" 
-    sddata_type = "lfitvel" 
+    #sddata_type = "lfitvel" 
     overlay_poes_data = False
-    overlay_ssusi_data = False
+    overlay_ssusi_data = True
     overlay_tec_data = True
-    overlay_terminator_line = True 
+    overlay_terminator_line = False
     if overlay_ssusi_data:
         fig_txt = sddata_type + "_ssusi"
         rawlos_srange_lim=[450, 4000]
@@ -944,8 +944,9 @@ if __name__ == "__main__":
 #    vel_scale=[-50,60]
 #    vel_scale_los_az=[-60,60]
 
-    stime = dt.datetime(2011, 5, 16, 8, 0)
+    #stime = dt.datetime(2011, 5, 16, 8, 0)
     #stime = dt.datetime(2011, 5, 29, 3, 0)
+    #stime = dt.datetime(2011, 7, 5, 4, 0)
     #stime = dt.datetime(2013, 1, 2, 7, 0)
     #stime = dt.datetime(2013, 1, 18, 3, 40)
     #stime = dt.datetime(2013, 11, 14, 5, 30)
@@ -958,10 +959,11 @@ if __name__ == "__main__":
     #stime = dt.datetime(2013, 5, 14, 7, 20)
     #stime = dt.datetime(2013, 5, 19, 5, 0)
     #stime = dt.datetime(2013, 11, 8, 4, 0)
-    #stime = dt.datetime(2013, 11, 16, 7, 30)
+    #stime = dt.datetime(2013, 11, 16, 9, 0)
     #stime = dt.datetime(2013, 11, 17, 5, 50)
     #stime = dt.datetime(2013, 12, 27, 5, 50)
     #stime = dt.datetime(2014, 7, 12, 9, 0)
+    stime = dt.datetime(2014, 12, 16, 13, 30)
     #stime = dt.datetime(2015, 4, 9, 5, 0)
     if overlay_poes_data or overlay_ssusi_data : 
         interval = 30*60    # half an hour
@@ -988,6 +990,7 @@ if __name__ == "__main__":
         # NOTE: Do not forget to set the channel
 	rads = ["wal", "bks", "fhe", "fhw", "cve", "cvw", "ade", "adw"]
         channel = [None, None, None, None, None, None, 'all', 'all']
+
 
 	fig, ax = plt.subplots(figsize=(8,6))
     #    # customized cmap
@@ -1022,10 +1025,15 @@ if __name__ == "__main__":
             #map_width=80*111e3 
             #map_height=45*111e3 
         else:
-            map_lat0 = 67
-            map_lon0=0
-            map_width=80*111e3 
-            map_height=45*111e3 
+            #map_lat0 = 67
+            #map_lon0=0
+            #map_width=80*111e3 
+            #map_height=45*111e3 
+            map_lat0 = 90
+            map_lon0 = 0
+            map_width = 80*111e3 
+            map_height = 80*111e3 
+
 	obj = sdvel_on_map(ax, rads, stime, interval=interval,
 			   map_lat0=map_lat0, map_lon0=0,
 			   map_width=map_width, 
@@ -1113,7 +1121,8 @@ if __name__ == "__main__":
         if overlay_poes_data:
             # Overlay POES data
             obj.overlay_poes(pltDate=None, selTime=None,
-                             satList=["m01", "m02", "n15", "n16", "n17", "n18", "n19"],
+                             #satList=["m01", "m02", "n15", "n16", "n17", "n18", "n19"],
+                             satList=["m01", "n15", "n16", "n17", "n18", "n19"],
                              plotCBar=False, cbar_shrink=0.5,
                              rawSatDir="../../data/poes/raw/",
                              inpFileDir="../../data/poes/bnd/")
