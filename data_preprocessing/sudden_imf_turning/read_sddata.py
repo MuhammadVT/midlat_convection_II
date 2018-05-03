@@ -56,8 +56,12 @@ def read_data_from_file(rad, stm, etm, ftype="fitacf", channel=None,
         if(myBeam.time > myPtr.eTime): break
         if(myPtr.sTime <= myBeam.time):
             if (myBeam.prm.tfreq >= tbands[0] and myBeam.prm.tfreq <= tbands[1]):
+                try:
+                    data['vel'].append([round(x, 2) for x in myBeam.fit.v])
+                except TypeError:
+                    myBeam = myPtr.readRec()
+                    continue
                 data['datetime'].append(myBeam.time)
-                data['vel'].append(myBeam.fit.v)
                 data['slist'].append(myBeam.fit.slist)
                 data['gflg'].append(myBeam.fit.gflg)
                 data['bmnum'].append(myBeam.bmnum)
@@ -76,66 +80,14 @@ def read_data_from_file(rad, stm, etm, ftype="fitacf", channel=None,
 
     return data
 
-def read_from_db(rad, bmnum, stm, etm, ftype="fitacf",
-                 baseLocation="../data/sqlite3/"):
-
-        """ reads the data from db instead of files
-        NOTE : you need to bugfix this function        
-        """
-
-        import sqlite3
-        import json
-        import sys 
-        sys.path.append("../")
-        from move_to_db.month_to_season import get_season_by_month
-        import datetime as dt
-
-        # make a db connection
-        dbName = rad + "_" + ftype + ".sqlite"
-        season = get_season_by_month((stm+dt.timedelta(days=1)).month)
-        baseLocation = baseLocation + season + "/original_data/"
-        conn = sqlite3.connect(baseLocation + dbName, detect_types=sqlite3.PARSE_DECLTYPES)
-        cur = conn.cursor()
-
-        # get all the table names
-        cur.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
-        tbl_names = cur.fetchall()
-        tbl_names = [x[0] for x in tbl_names]
-
-        # get the available beam numbers 
-        beam_nums = [x.split("_")[-1][2:] for x in tbl_names]
-        beam_nums = [int(x) for x in beam_nums]
-    
-        # loop through each table
-        beams_dict = {}
-        for jj, bmnum in enumerate(beam_nums):
-            # get the data from db
-            command = "SELECT * FROM {tb}\
-                       WHERE datetime BETWEEN '{stm}' AND '{etm}'\
-                       ORDER BY datetime".\
-                       format(tb=tbl_names[jj], stm=stm, etm=etm)
-            cur.execute(command)
-            rws = cur.fetchall()
-            if rws:
-                data_dict = {}
-                data_dict['vel'] = [json.loads(x[0]) for x in rws]
-                data_dict['rsep'] = [x[1] for x in rws]
-                data_dict['frang'] = [x[2] for x in rws]
-                data_dict['bmazm'] = [x[3] for x in rws]
-                data_dict['slist'] = [json.loads(x[4]) for x in rws]
-                data_dict['gsflg'] = [json.loads(x[5]) for x in rws]
-                data_dict['datetime'] = [x[6] for x in rws]
-                beams_dict[bmnum] = data_dict
-        if not beams_dict:
-            beams_dict = None
-
-        return beams_dict
-
 if __name__ == "__main__":
 
     import datetime as dt
     stm = dt.datetime(2014, 12, 16, 13, 30)
-    etm = dt.datetime(2014, 12, 16, 13, 50)
-    rad = "cve"
-    data_dict = read_data_from_file(rad, stm, etm, ftype="fitacf", channel=None,
+    etm = dt.datetime(2014, 12, 16, 14, 30)
+    #rad = "ade"
+    #channel = "all"
+    rad = "fhw"
+    channel = None
+    data_dict = read_data_from_file(rad, stm, etm, ftype="fitacf", channel=channel,
                                     tbands=None, coords="geo")
