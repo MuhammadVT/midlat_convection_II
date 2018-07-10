@@ -42,7 +42,7 @@ class gmi_imf_to_db(object):
                                detect_types = sqlite3.PARSE_DECLTYPES)
         return conn
 
-    def imf_to_db(self):
+    def imf_to_db(self, resolution):
         """fetches imf data and writes them to db """
 
         import datetime as dt
@@ -52,7 +52,7 @@ class gmi_imf_to_db(object):
 
         # read the data we want in GSM coords
         data_dict = {'datetime':[], 'Bx':[], 'By':[], 'Bz':[]}
-        omni_list = readOmniFtp(sTime=self.stm, eTime=self.etm, res=1)
+        omni_list = readOmniFtp(sTime=self.stm, eTime=self.etm, res=resolution)
         data_dict['datetime'] = [omni_list[i].time for i in range(len(omni_list))]
         data_dict['Bx'] = [omni_list[i].bx for i in range(len(omni_list))]
         data_dict['By'] = [omni_list[i].bym for i in range(len(omni_list))]
@@ -280,78 +280,78 @@ class gmi_imf_to_db(object):
         # close db connection
         self.conn.close()
 
-    def ae_to_db(self, ae_lim=None):
+    def aualae_to_db(self, resolution=1):
         """fetches AE data and writes them to db """
 
-        from davitpy import gme
+        import ae
         import datetime as dt
 
         # make a db connection
         self.conn = self._create_dbconn()
 
+	# create table
+	table_name = "aualae"
+	colname_type = "datetime TIMESTAMP PRIMARY KEY, au REAL, al REAL, ae REAL"
+	command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})"
+	command = command.format(tb=table_name, colname_type=colname_type)
+	self.conn.cursor().execute(command)
+
         # read AE data
-        data_dict = {'datetime':[], 'ae':[]}
-        # reads AE data with 1-min resolution
-        ae_list = gme.ind.ae.readAe(sTime=self.stm, eTime=self.etm, res=1)
-        for i in xrange(len(ae_list)):
-            data_dict['ae'].append(ae_list[i].ae)
-            data_dict['datetime'].append(ae_list[i].time)
+        data_dict = {'datetime':[], 'au':[], 'al':[], 'ae':[]}
+	# Need to loop through each year because of the max # of years <=1 limitation
+	for yr in range(self.stm.year, self.etm.year+1):
+	    stm_tmp = dt.datetime(yr, 1, 1)
+	    etm_tmp = dt.datetime(yr, 12, 31)
+	    # reads AE data
+	    ae_list = ae.readAeWeb(sTime=stm_tmp, eTime=etm_tmp, res=resolution)
+	    for i in xrange(len(ae_list)):
+		data_dict['au'].append(ae_list[i].au)
+		data_dict['al'].append(ae_list[i].al)
+		data_dict['ae'].append(ae_list[i].ae)
+		data_dict['datetime'].append(ae_list[i].time)
 
-        # move to db
-        if (data_dict['datetime'])!=[]:
+	    # move to db
+	    if (data_dict['datetime'])!=[]:
+		# populate the table
+		row_num = len(data_dict['datetime'])
+		columns = "datetime, au, al, ae"
+		for i in xrange(row_num):
+		    dtm = data_dict['datetime'][i]
+		    au_i = data_dict['au'][i]
+		    al_i = data_dict['al'][i]
+		    ae_i = data_dict['ae'][i]
+		    command = "INSERT OR IGNORE INTO {tb}({columns}) VALUES (?, ?, ?, ?)".\
+			      format(tb=table_name, columns=columns)
+		    self.conn.cursor().execute(command, (dtm, au_i, al_i, ae_i))
 
-            # create table
-            table_name = "ae"
-            colname_type = "datetime TIMESTAMP PRIMARY KEY, ae REAL"
-            command = "CREATE TABLE IF NOT EXISTS {tb} ({colname_type})"
-            command = command.format(tb=table_name, colname_type=colname_type)
-            self.conn.cursor().execute(command)
-            
-            # populate the table
-            row_num = len(data_dict['datetime'])
-            columns = "datetime, ae"
-            for i in xrange(row_num):
-                dtm = data_dict['datetime'][i]
-                k = data_dict['ae'][i]
-                if ae_lim is not None:
-                    if k < ae_lim[0] or k >= ae_lim[1]:
-                        store_ae = False
-                    else:
-                        store_ae = True
-                else:
-                    store_ae = True
-                if store_ae:
-                    command = "INSERT OR IGNORE INTO {tb}({columns}) VALUES (?, ?)".\
-                              format(tb=table_name, columns=columns)
-                    self.conn.cursor().execute(command, (dtm, k))
-
-            self.conn.commit()
+		self.conn.commit()
+	    print("Stored data for Year " + str(yr))
 
         # close db connection
         self.conn.close()
 
 
-
 def main():
     import datetime as dt
-    stm = dt.datetime(2010, 12, 29)
-    etm = dt.datetime(2017, 1, 3)
-    db_name = None
-    #db_name = "test_imf.sqlite"
-    base_location = "../../data/sqlite3/"
+    stm = dt.datetime(2010, 1, 1)
+    etm = dt.datetime(2018, 7, 1)
+    #db_name = None
+    db_name = "test_gmi_imf.sqlite"
+    #base_location = "../../data/sqlite3/"
+    base_location = "/home/sd-spare/muhammad/github_repos/convection_response_to_sudden_imf_turning/data/sqlite3/"
 
     kp_lim = None
     symh_lim = None
     dst_lim = None
-    ae_lim = None
+    resolution = 1
 
     # create an object
     gmi = gmi_imf_to_db(stm, etm, db_name=db_name, base_location=base_location)
 
-    # store IMF into db
-    print "storing IMF to db"
-    gmi.imf_to_db()
-    print "imf is done"
+#    # store IMF into db
+#    print "storing IMF to db"
+#    gmi.imf_to_db(resolution=resolution)
+#    print "imf is done"
 
 #    # store F107 into db
 #    print "storing F107 to db"
@@ -364,15 +364,15 @@ def main():
 #    gmi.kp_to_db(kp_lim=kp_lim)
 #    print "kp is done"
 
-#    # store symh into db
-#    print "storing symh to db"
-#    gmi.symh_to_db(symh_lim=symh_lim)
-#    print "symh is done"
+    # store symh into db
+    print "storing symh to db"
+    gmi.symh_to_db(symh_lim=symh_lim)
+    print "symh is done"
 
-#    # store symh into db
-#    print "storing AE to db"
-#    gmi.ae_to_db(ae_lim=ae_lim)
-#    print "AE is done"
+#    # store AU, AL, AE into db
+#    print "storing AU, AL, AE to db"
+#    gmi.aualae_to_db(resolution=resolution)
+#    print "AU, AL, AE is done"
 
 if __name__ == "__main__":
     main()
