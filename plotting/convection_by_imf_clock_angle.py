@@ -130,10 +130,11 @@ def pol2cart(phi, rho):
     y = rho * np.sin(phi)
     return(x, y)
 
-def vector_plot(ax, data_dict, cmap, bounds, velscl=1, lat_min=50, title="xxx",
+def vector_plot(ax, data_dict, cmap=None, norm=None, velscl=1,
+                lat_min=50, title="xxx", sparse_factor=1,
                 hemi="north", fake_pole=False):
     
-    """ plots the flow vectors in LAT/LT grids in coords
+    """ plots the flow vectors in LAT/LT grids in polar frame
 
     Parameters
     ----------
@@ -144,9 +145,6 @@ def vector_plot(ax, data_dict, cmap, bounds, velscl=1, lat_min=50, title="xxx",
     import matplotlib as mpl
     from matplotlib.collections import PolyCollection,LineCollection
     import numpy as np
-
-    # build a custom color map
-    norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
 
     # set axis limits
     if fake_pole:
@@ -186,7 +184,6 @@ def vector_plot(ax, data_dict, cmap, bounds, velscl=1, lat_min=50, title="xxx",
     theta = np.deg2rad(data_dict['glonc'] + 90 - data_dict['vel_dir']) 
 
     # make the points sparse
-    sparse_factor = 2
     x1 = np.array([x1[i] for i in range(len(x1)) if i%sparse_factor==0])
     y1 = np.array([y1[i] for i in range(len(y1)) if i%sparse_factor==0])
     vel_mag = np.array([vel_mag[i] for i in range(len(vel_mag)) if i%sparse_factor==0])
@@ -231,7 +228,160 @@ def vector_plot(ax, data_dict, cmap, bounds, velscl=1, lat_min=50, title="xxx",
 
     return lcoll
 
-def add_cbar(fig, coll, bounds, label="Speed [m/s]", cax=None):
+def vector_plot_rect(ax, data_dict, cmap=None, norm=None, velscl=1,
+                     veldir=None, add_yoffset=False,
+                     lat_min=50, sparse_factor=1, title="xxx"):
+    
+    """ plots the flow vectors in LAT/LT grids in rectangular frame
+
+    Parameters
+    ----------
+    lat_min : int
+        Used for changing the range of y to [0, xxx]
+    add_yoffset : bool
+        small offset to y1 so that we can see the vector directions
+    veldir : str (Default to None)
+        If set to None, 2-D vector will be plotted 
+    
+    """
+
+    import matplotlib.pyplot as plt
+    import matplotlib as mpl
+    from matplotlib.collections import PolyCollection,LineCollection
+    import numpy as np
+    from matplotlib.ticker import MultipleLocator
+
+    # x-y aspect ration should be equal
+    ax.set_aspect("equal")
+
+    # LON to LT and change the range to [-12, 12]
+    x1 = np.array([x/15. for x in data_dict['glonc']])
+    # rearragen the time to center at mid-night
+    for i, x in enumerate(x1):
+        if x > 12:
+            x1[i] = x - 24
+        else:
+            x1[i] = x
+    # Change the range of LAT to [0, xxx]
+    y1 = data_dict['glatc'] - lat_min
+
+    if add_yoffset:
+    # introduce offsets to y1 so that we can see the vector directions
+        for i, lat_i in enumerate(np.unique(y1)):
+            idx = (np.where(y1==lat_i))[0]
+            offs = 0.2 * np.sin(np.linspace(np.pi/2, 4.5*np.pi, len(idx)))
+            for j, ix in enumerate(idx):
+                y1[ix] = y1[ix] + offs[j]
+
+
+    # add the vector lines
+    lines = []
+    intensities = []
+    vel_mag = data_dict['vel_mag']
+
+    # calculate the angle of the vectors in a tipical x-y axis.
+    theta = np.deg2rad(90 - data_dict['vel_dir']) 
+
+    # make the points sparse
+    x1 = np.array([x1[i] for i in range(len(x1)) if i%sparse_factor==0])
+    y1 = np.array([y1[i] for i in range(len(y1)) if i%sparse_factor==0])
+    vel_mag = np.array([vel_mag[i] for i in range(len(vel_mag)) if i%sparse_factor==0])
+    theta = np.array([theta[i] for i in range(len(theta)) if i%sparse_factor==0])
+
+    # Calculate vector ending points
+    if veldir is None:
+        x2 = x1+vel_mag/velscl*(-1.0)*np.cos(theta)
+        y2 = y1+vel_mag/velscl*(-1.0)*np.sin(theta)
+    elif veldir == "Meridional":
+        theta = np.deg2rad(data_dict['glonc'] + 90 - 0)
+        vel_mag = vel_mag * np.cos(np.deg2rad(data_dict['vel_dir']))
+        x2 = x1+ vel_mag/velscl*(-1.0)*np.cos(theta)
+        y2 = y1+vel_mag/velscl*(-1.0)*np.sin(theta)
+    elif veldir == "Zonal":
+        theta = np.deg2rad(data_dict['glonc'] + 90 - 90)
+        vel_mag = vel_mag * np.sin(np.deg2rad(data_dict['vel_dir']))
+        x2 = x1+vel_mag/velscl*(-1.0)*np.cos(theta)
+        y2 = y1+vel_mag/velscl*(-1.0)*np.sin(theta)
+
+    lines.extend(zip(zip(x1,y1),zip(x2,y2)))
+    #save the param to use as a color scale
+    intensities.extend(np.abs(vel_mag))
+
+    # plot the velocity locations
+    ccoll = ax.scatter(x1, y1, 
+                       s=0.5,zorder=10,marker='o', c=np.abs(np.array(intensities)),
+                       linewidths=.4, edgecolors='face' ,cmap=cmap,norm=norm)
+    lcoll = LineCollection(np.array(lines),linewidths=0.4,zorder=12,
+                           cmap=cmap,norm=norm)
+    lcoll.set_array(np.abs(np.array(intensities)))
+    ccoll.set_array(np.abs(np.array(intensities)))
+    ax.add_collection(ccoll)
+    ax.add_collection(lcoll)
+
+    # set axis limits
+    ax.set_xlim([-6, 6])
+    ax.xaxis.set_major_locator(MultipleLocator(base=3))
+
+    # Set title 
+    ax.set_title(title, fontsize="small")
+
+    # Set y-axis ticks and limits 
+    #ymin = 2    # corresponds to 52
+    ymin = int(np.floor(np.min(data_dict['glatc'])))
+    ymax = int(np.floor(np.max(data_dict['glatc'])))
+    ymin_rel = ymin - lat_min
+    ymax_rel = ymax - lat_min + 1
+    ax.yaxis.set_major_locator(MultipleLocator(base=1))
+    ax.set_ylim([ymin_rel, ymax_rel])
+    #ylim_range_rel = range(int(ax.get_ylim()[0]), 1+int(ax.get_ylim()[1]))
+    ylim_range_rel = [int(x) for x in ax.get_yticks().tolist()]
+    ylim_range = [lat_min + x for x in ylim_range_rel]
+    ax.set_yticklabels(ylim_range, fontsize="small")
+
+    return lcoll
+
+
+def plot_center_axis(ax, sector_center_dist=45, sector_width=40,
+                     lat_min=50, lat_range=[52, 59], frame_type="circ"):
+
+    import numpy as np
+
+    ax.set_aspect("equal")
+
+    # Plot arrows
+    if frame_type == "circ":
+        arrow_len = 0.3 * (90-lat_min)
+        x1 = 0
+        y1 = -(90 - lat_min)/2.
+    if frame_type == "rect":
+        arrow_len = 0.3 * 6
+        x1 = 0
+        y1 = np.mean(lat_range) - lat_min + 0.5
+    imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
+    for i, imf_bin in enumerate(imf_bins):
+        sector_center = np.mean(imf_bin)
+        len_x = arrow_len * np.sin(np.deg2rad(sector_center))
+        len_y = arrow_len * np.cos(np.deg2rad(sector_center))
+        ax.arrow(x1, y1, len_x, len_y, head_width=0.05*arrow_len,
+                 head_length=0.1*arrow_len, fc='k', ec='k')
+
+    # Add x-y axis names
+    xy_By = (x1 + 1.15*arrow_len, y1)
+    xy_Bz = (x1, y1 + 1.15*arrow_len)
+    ax.annotate("By+", xy=xy_By, ha="left", va="center")
+    ax.annotate("Bz+", xy=xy_Bz, ha="center", va="bottom")
+
+    # Set title
+    ax.set_title("IMF Clock Angle", fontsize="medium")
+
+    # remove tikcs and frames
+    ax.tick_params(axis='both', which='both', bottom='off', top='off',
+                   left="off", right="off", labelbottom='off', labelleft='off')
+    ax.axis("off")
+
+    return
+
+def add_cbar(fig, coll, bounds=None, label="Speed [m/s]", cax=None):
 
     # add color bar
     if cax:
@@ -242,18 +392,22 @@ def add_cbar(fig, coll, bounds, label="Speed [m/s]", cax=None):
                           boundaries=bounds, drawedges=False) 
 
     #define the colorbar labels
-    l = []
-    for i in range(0,len(bounds)):
-        if i == 0 or i == len(bounds)-1:
-            l.append(' ')
-            continue
-        l.append(str(int(bounds[i])))
-    cbar.ax.set_yticklabels(l)
+    if bounds:
+        l = []
+        for i in range(0,len(bounds)):
+            if i == 0 or i == len(bounds)-1:
+                l.append(' ')
+                continue
+            l.append(str(int(bounds[i])))
+        cbar.ax.set_yticklabels(l)
+    else:
+        for i in [0, -1]:
+            lbl = cbar.ax.yaxis.get_ticklabels()[i]
+            lbl.set_visible(False)
+
     #cbar.ax.tick_params(axis='y',direction='out')
     cbar.set_label(label)
-
     return
-
 
 def main():
 
@@ -264,59 +418,93 @@ def main():
 
     # input parameters
     nvel_min=100
-    lat_range=[53, 61]
-    lat_min = 50
+    lat_range=[52, 59]
+    lat_min = 50    # This variable is used extensively. Be careful when changing it
+    sparse_factor=2
+
+    frame_type = "circ"    # options: "rect" or "circ"
+    #frame_type = "rect"
+    #cmap_type = "discrete"    # options: "discrete" or "continuous"
+    cmap_type = "continuous"    # options: "discrete" or "continuous"
 
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
-
-    rads_txt = "six_rads"
-
-    #years = [2011, 2012]
-    #years_txt = "_years_" + "_".join([str(x) for x in years])
-    years_txt = ""
-    kp_text = "_kp_00_to_23"
-
-    db_name = "master_" + coords + "_" + ftype + "_binned_by_imf_clock_angle"
-
-    # cmap and bounds for color bar
-    color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
-    cmap = mpl.colors.ListedColormap(color_list)
-    bounds = [0., 8, 17, 25, 33, 42, 10000]
-
     #seasons = ["winter", "summer", "equinox"]
     seasons = ["winter"]
 
-    # set the imf bins
-    sector_width = 60
-    sector_center_dist = 90
-    imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
-    bins_txt = ["Bz+", "By+", "Bz-", "By-"]
+    # Construct DB name
+    #years = [2011, 2012]
+    #years_txt = "_years_" + "_".join([str(x) for x in years])
+    years_txt = ""
+    rads_txt = "six_rads"
+    kp_text = "_kp_00_to_23"
+    db_name = "master_" + coords + "_" + ftype + "_binned_by_imf_clock_angle"
 
-    bvec_max = 0.85
-    before_mins=80
+    # Make cmap and norm
+    if cmap_type == "discrete":
+        # cmap and bounds for color bar with discrete colors
+        color_list = ['purple', 'b', 'c', 'g', 'y', 'r']
+        cmap = mpl.colors.ListedColormap(color_list)
+        bounds = [0., 8, 17, 25, 33, 42, 10000]
+        norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+
+    if cmap_type == "continuous":
+        # cmap and bounds for color bar with continuous colors
+        cmap = "jet"
+        bounds = None
+        vmin=0; vmax=60
+        norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+
+    # Create clock angle bins
+    sector_center_dist = 45
+    sector_width = 40
+    # set bins for all clock angle ranges
+    imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
+    #imf_bins = [[-30, 30] for x in imf_bins]
+    # Determines how to place the imf_bins into panels,
+    # NOTE: must match with imf_bins
+    ax_idxs = [1, 2, 5, 8, 7, 6, 3, 0]     
+
+#    # set bins for IMF clock angle near 90 or 270
+#    sector_centers = [80 - sector_width/2, 100 + sector_width/2,
+#                      260 - sector_width/2, 280 + sector_width/2]
+#    imf_bins = []
+#    for ctr in sector_centers:
+#        imf_bins.append([ctr - sector_width/2, ctr + sector_width/2])
+
+#    #bins_txt = ["Bz+", "By+", "Bz-", "By-"]
+#    bins_txt = ["By+, Bz+", "By+, Bz-", "By-, Bz-", "By-, Bz+"]
+    bins_txt = ["Bz+", "By+/Bz+", "By+", "By+/Bz-",
+                "Bz-", "By-/Bz-", "By-", "By-/Bz+"]
+    tmp_txt = "_" + frame_type
+    #tmp_txt = "_IMF_By" 
+
+    # Set IMF stability conditions
+    bvec_max = 0.95
+    before_mins=50
     after_mins=0
     del_tm=10
 
     for j, season in enumerate(seasons):
-
 	# create subplots
-	fig, axes = plt.subplots(nrows=len(imf_bins)/2, ncols=len(imf_bins)/2, figsize=(8,6))
+        if frame_type == "circ":
+            figsize=(12,6)
+            hspace=0.3
+        if frame_type == "rect":
+            figsize=(12,6)
+            hspace=0.3
+	fig, axes = plt.subplots(nrows=3, ncols=3, figsize=figsize,
+                                 sharex=True, sharey=True)
 	axes = [x for subls in axes for x in subls]
-	fig.subplots_adjust(hspace=-0.2)
-
+	fig.subplots_adjust(hspace=hspace)
 	if len(imf_bins) == 1:
 	    axes = [axes]
 
-	fig_dir = "./plots/convection/kp_l_3/data_in_mlt/convection_by_imf_clock_angle/"
-	fig_name = season + "_convection" +\
-			    "_bfr" + str(before_mins) +\
-			    "_aftr" +  str(after_mins) +\
-			    "_bvec" + str(bvec_max).split('.')[-1]
-
-
+        ax_i = 0
 	for i, imf_bin in enumerate(imf_bins):
+            ax_idx = ax_idxs[i]
+            # Construct DB table name
 	    input_table = "master_fit_" + rads_txt + kp_text + \
 			   "_b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
 			   "_bfr" + str(before_mins) +\
@@ -331,20 +519,60 @@ def main():
 			coords=coords, sqrt_weighting=sqrt_weighting)
 
 	    # plot the flow vectors
-	    title = "Velocities, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+" +\
+	    #title = "Velocities, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+" +\
+	    title = "Kp $\leq$ 2+" +\
 		    ", IMF " + bins_txt[i]
-	    coll = vector_plot(axes[i], data_dict, cmap, bounds, velscl=10,
-			       lat_min=lat_min, title=title)
+
+            if frame_type == "circ":
+                coll = vector_plot(axes[ax_idx], data_dict, cmap=cmap, norm=norm, velscl=10,
+                                   sparse_factor=sparse_factor, lat_min=lat_min, title=title)
+            if frame_type == "rect":
+                coll = vector_plot_rect(axes[ax_idx], data_dict, cmap=cmap, norm=norm, velscl=50,
+                                        sparse_factor=sparse_factor, lat_min=lat_min, title=title,
+                                        veldir=None, add_yoffset=False)
+
+        # Plot the center axis for IMF clock angle
+        plot_center_axis(axes[4], sector_center_dist=sector_center_dist,
+                         lat_min=lat_min, lat_range=lat_range,
+                         sector_width=sector_width, frame_type=frame_type)
+
+        # Set axis labels
+        if frame_type == "rect":
+            # add label to first column and last row
+            for i in [0, 3, 6]:
+                axes[i].set_ylabel("MLAT [degree]", fontsize=9)
+            for i in range(6,9):
+                axes[i].set_xlabel("MLT", fontsize=9)
+    
+            # Set x-axis tick labels
+            xlabels = [item.get_text() for item in axes[-1].get_xticklabels()]
+            xlabels = [str(x) for x in range(18, 24, 3) + range(0, 9, 3)]
+            plt.xticks(range(-6, 9, 3), xlabels)
 
 	# add colorbar
-	fig.subplots_adjust(right=0.85)
-	cbar_ax = fig.add_axes([0.90, 0.25, 0.02, 0.5])
-	add_cbar(fig, coll, bounds, cax=cbar_ax, label="Speed [m/s]")
+        if frame_type == "circ":
+            cbar_right = 0.87
+            cbar_size = [0.90, 0.25, 0.02, 0.5]
+        if frame_type == "rect":
+            cbar_right = 0.87
+            cbar_size = [0.90, 0.25, 0.02, 0.5]
+        fig.subplots_adjust(right=cbar_right)
+        cbar_ax = fig.add_axes(cbar_size)
+	add_cbar(fig, coll, bounds=bounds, cax=cbar_ax, label="Speed [m/s]")
 
-        plt.figtext(0.5, 0.92, "Stable IMF Interval = " + str(before_mins+del_tm) + " mins", ha="center")
+        # Add figure title
+        #plt.figtext(0.5, 0.95, "Stable IMF Interval >= " + str(before_mins+del_tm) + " mins", ha="center")
+
 	# save the fig
-	fig.savefig(fig_dir + fig_name + ".png", dpi=300)
+	fig_dir = "./plots/convection/kp_l_3/data_in_mlt/convection_by_imf_clock_angle/"
+	fig_name = season + "_convection" + tmp_txt +\
+			    "_bfr" + str(before_mins) +\
+			    "_aftr" +  str(after_mins) +\
+			    "_bvec" + str(bvec_max).split('.')[-1] +\
+                            "_IMF_interval_" + str(before_mins+after_mins+10)
+	fig.savefig(fig_dir + fig_name + ".png", dpi=300, bbox_inches="tight")
 	#fig.savefig(fig_dir + fig_name + ".pdf", format="pdf")
+        plt.close(fig)
 	#plt.show()
 
     return
