@@ -430,8 +430,8 @@ def main():
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
-    #seasons = ["winter", "summer", "equinox"]
-    seasons = ["winter"]
+    seasons = ["winter", "summer", "equinox"]
+    #seasons = ["winter"]
 
     # Construct DB name
     #years = [2011, 2012]
@@ -519,8 +519,7 @@ def main():
 			coords=coords, sqrt_weighting=sqrt_weighting)
 
 	    # plot the flow vectors
-	    #title = "Velocities, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+" +\
-	    title = "Kp $\leq$ 2+" +\
+	    title = season[0].upper()+season[1:] + r", Kp $\leq$ 2+" +\
 		    ", IMF " + bins_txt[i]
 
             if frame_type == "circ":
