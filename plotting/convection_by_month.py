@@ -131,8 +131,7 @@ def pol2cart(phi, rho):
     return(x, y)
 
 def vector_plot(ax, data_dict, cmap=None, norm=None, velscl=1, lat_min=50, title="xxx",
-                vmin=None, vmax=None,
-                hemi="north", fake_pole=False):
+                sparse_factor=1, hemi="north", fake_pole=False):
     
     """ plots the flow vectors in LAT/LT grids in polar frame
 
@@ -184,7 +183,6 @@ def vector_plot(ax, data_dict, cmap=None, norm=None, velscl=1, lat_min=50, title
     theta = np.deg2rad(data_dict['glonc'] + 90 - data_dict['vel_dir']) 
 
     # make the points sparse
-    sparse_factor = 2
     x1 = np.array([x1[i] for i in range(len(x1)) if i%sparse_factor==0])
     y1 = np.array([y1[i] for i in range(len(y1)) if i%sparse_factor==0])
     vel_mag = np.array([vel_mag[i] for i in range(len(vel_mag)) if i%sparse_factor==0])
@@ -229,8 +227,7 @@ def vector_plot(ax, data_dict, cmap=None, norm=None, velscl=1, lat_min=50, title
     return lcoll
 
 def vector_plot_rect(ax, data_dict, cmap=None, norm=None, velscl=1, lat_min=50,
-                     vmin=None, vmax=None,
-                     title="xxx", veldir=None, add_yoffset=False):
+                     sparse_factor=1, title="xxx", veldir=None, add_yoffset=False):
     
     """ plots the flow vectors in LAT/LT grids in rectangular frame
 
@@ -282,12 +279,12 @@ def vector_plot_rect(ax, data_dict, cmap=None, norm=None, velscl=1, lat_min=50,
     theta = np.deg2rad(90 - data_dict['vel_dir']) 
 
     # make the points sparse
-    sparse_factor = 2
     x1 = np.array([x1[i] for i in range(len(x1)) if i%sparse_factor==0])
     y1 = np.array([y1[i] for i in range(len(y1)) if i%sparse_factor==0])
     vel_mag = np.array([vel_mag[i] for i in range(len(vel_mag)) if i%sparse_factor==0])
     theta = np.array([theta[i] for i in range(len(theta)) if i%sparse_factor==0])
 
+    # Calculate vector ending points
     if veldir is None:
         x2 = x1+vel_mag/velscl*(-1.0)*np.cos(theta)
         y2 = y1+vel_mag/velscl*(-1.0)*np.sin(theta)
@@ -301,7 +298,6 @@ def vector_plot_rect(ax, data_dict, cmap=None, norm=None, velscl=1, lat_min=50,
         vel_mag = vel_mag * np.sin(np.deg2rad(data_dict['vel_dir']))
         x2 = x1+vel_mag/velscl*(-1.0)*np.cos(theta)
         y2 = y1+vel_mag/velscl*(-1.0)*np.sin(theta)
-
 
     lines.extend(zip(zip(x1,y1),zip(x2,y2)))
     #save the param to use as a color scale
@@ -383,10 +379,12 @@ def main():
     nvel_min=100
     lat_range=[52, 59]
     lat_min = 50
+    sparse_factor=1
 
     frame_type = "rect"    # options: "rect" or "circ"
     #cmap_type = "discrete"    # options: "discrete" or "continuous"
     cmap_type = "continuous"    # options: "discrete" or "continuous"
+
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
@@ -417,9 +415,10 @@ def main():
 
     months = range(1, 13)
     #months = [11, 12, 1, 2, 3, 4, 9, 10, 5, 6, 7, 8]
+    tmp_txt = "_" + frame_type
 
     fig_dir = "./plots/convection_by_month/kp_l_3/data_in_mlt/"
-    fig_name = rads_txt + "_monthly_convection_lat" + str(lat_range[0]) +\
+    fig_name = rads_txt + "_monthly_convection" + tmp_txt + "_lat" + str(lat_range[0]) +\
                "_to_lat" + str(lat_range[1]) + "_nvel_min_" + str(nvel_min)
    
     # create subplots
@@ -444,10 +443,10 @@ def main():
         title = "Velocities, " + calendar.month_name[month][:3] + r", Kp $\leq$ 2+"
         if frame_type == "circ":
             coll = vector_plot(ax, data_dict, cmap=cmap, norm=norm, velscl=10,
-                               lat_min=lat_min, title=title)
+                               sparse_factor=sparse_factor, lat_min=lat_min, title=title)
         if frame_type == "rect":
             coll = vector_plot_rect(ax, data_dict, cmap=cmap, norm=norm, velscl=50,
-                                    lat_min=lat_min, title=title,
+                                    lat_min=lat_min, title=title,sparse_factor=sparse_factor, 
                                     veldir=None, add_yoffset=False)
 
         # change the font
