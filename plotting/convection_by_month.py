@@ -379,9 +379,10 @@ def main():
     nvel_min=100
     lat_range=[52, 59]
     lat_min = 50
-    sparse_factor=1
+    sparse_factor=2
 
     frame_type = "rect"    # options: "rect" or "circ"
+    #frame_type = "circ"
     #cmap_type = "discrete"    # options: "discrete" or "continuous"
     cmap_type = "continuous"    # options: "discrete" or "continuous"
 

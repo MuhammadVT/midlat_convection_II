@@ -521,7 +521,6 @@ def main():
 	    # plot the flow vectors
 	    title = season[0].upper()+season[1:] + r", Kp $\leq$ 2+" +\
 		    ", IMF " + bins_txt[i]
-
             if frame_type == "circ":
                 coll = vector_plot(axes[ax_idx], data_dict, cmap=cmap, norm=norm, velscl=10,
                                    sparse_factor=sparse_factor, lat_min=lat_min, title=title)
