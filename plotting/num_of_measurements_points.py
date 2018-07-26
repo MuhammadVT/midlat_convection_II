@@ -48,7 +48,7 @@ def num_plot(ax, data_dict, cmap=None, norm=None,
 
     #do the actual overlay
     ccoll = ax.scatter(x1, y1,
-                    s=4.0,zorder=10,marker='o', c=np.abs(np.array(intensities)),
+                    s=3.5,zorder=10,marker='o', c=np.abs(np.array(intensities)),
                     linewidths=.5, edgecolors='face'
                     ,cmap=cmap,norm=norm)
 
@@ -165,7 +165,6 @@ def by_season():
     from convection import fetch_data
     import matplotlib as mpl
 
-
     # input parameters
     nvel_min=100
     #nvel_min=300
@@ -179,17 +178,19 @@ def by_season():
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
+    #cmap_type = "discrete"
+    cmap_type = "continuous"
+    frame_type = "circ"    # options: "rect" or "circ"
+    #frame_type = "rect"
+
     rads_txt = "six_rads"
     #rads_txt = "cve_cvw"
-    #rads_txt = "fhe_fhw"
-    #rads_txt = "bks_wal"
-    #rads_txt = "ade_adw"
-    #rads_txt = "hok_hkw"
-
+    seasons = ["winter", "summer", "equinox"]
     #years = [2015, 2016]
     #years_txt = "_years_" + "_".join([str(x) for x in years])
     years_txt = ""
-    kp_text = "_kp_00_to_03"
+    tmp_text = "_" + frame_type
+    kp_texts = ["_kp_00_to_03", "_kp_07_to_13", "_kp_17_to_23", "_kp_27_to_33"]
     kp_text_dict ={"_kp_00_to_03" : r", Kp = 0",
                    "_kp_07_to_13" : r", Kp = 1",
                    "_kp_17_to_23" : r", Kp = 2",
@@ -197,54 +198,78 @@ def by_season():
                    "_kp_27_to_43" : r", 3-$\leq$Kp$\leq$4+",
                    "_kp_37_to_90" : r", Kp $\geq$ 4-"}
 
+    # Make cmap and norm
+    if cmap_type == "discrete":
+        # cmap and bounds for color bar with discrete colors
+        color_list = ['purple', 'b', 'dodgerblue', 'c', 'g', 'y', 'orange', 'r']
+        cmap = mpl.colors.ListedColormap(color_list)
+        bounds = range(100, 500, 50)
+        #bounds[0] = 100
+        bounds.append(10000)
+        norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
 
-    #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
-    input_table = "master_cosfit_" + rads_txt + kp_text + years_txt
+    if cmap_type == "continuous":
+        # cmap and bounds for color bar with continuous colors
+        cmap = "jet"
+        bounds = None
+        vmin=0; vmax=5000
+        norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
 
-    seasons = ["winter", "summer", "equinox"]
-
-    fig_dir = "./plots/num_measurement_points/" + kp_text[1:] + "/data_in_mlt/"
-    fig_name = rads_txt + years_txt + "_seasonal_num_measurement_points"
-   
     # create subplots
-    fig, axes = plt.subplots(nrows=len(seasons), ncols=1, figsize=(6,8))
+    fig, axes = plt.subplots(nrows=len(seasons), ncols=len(kp_texts), figsize=(12,5),
+                             sharex=True, sharey=True)
     fig.subplots_adjust(hspace=0.3)
-
-    # build a custom color map and bounds
-    color_list = ['purple', 'b', 'dodgerblue', 'c', 'g', 'y', 'orange', 'r']
-    cmap = mpl.colors.ListedColormap(color_list)
-    #bounds = range(0, 2400, 300)
-    bounds = range(0, 8000, 1000)
-    #bounds = range(100, 800, 100)
-    bounds[0] = nvel_min
-    bounds.append(20000)
-
     if len(seasons) == 1:
         axes = [axes]
+    for j, kp_text in enumerate(kp_texts):
+        #input_table = "master_cosfit_hok_hkw_kp_00_to_23"
+        #input_table = "master_cosfit_hok_hkw_kp_00_to_23_azbin_nvel_min_5"
+        input_table = "master_cosfit_" + rads_txt + kp_text + years_txt
 
-    for i, season in enumerate(seasons):
-        # fetches the data from db 
-        data_dict = fetch_data(input_table, lat_range=lat_range,
-                    nvel_min=nvel_min, season=season,
-                    config_filename="../mysql_dbconfig_files/config.ini",
-                    section="midlat", db_name=None, ftype=ftype,
-                    coords=coords, sqrt_weighting=sqrt_weighting)
+        for i, season in enumerate(seasons):
+            # fetches the data from db 
+            data_dict = fetch_data(input_table, lat_range=lat_range,
+                        nvel_min=nvel_min, season=season,
+                        config_filename="../mysql_dbconfig_files/config.ini",
+                        section="midlat", db_name=None, ftype=ftype,
+                        coords=coords, sqrt_weighting=sqrt_weighting)
 
-        # plot the flow vectors
-        title = "Number of Measurements, " + season[0].upper()+season[1:] + kp_text_dict[kp_text] 
-        coll = num_plot(axes[i], data_dict, cmap=cmap, norm=norm,
-                        lat_min=lat_min, title=title)
+            # plot the flow vectors
+            title = "# Points, " + season[0].upper()+season[1:] + kp_text_dict[kp_text] 
+            if frame_type == "circ":
+                coll = num_plot(axes[i,j], data_dict, cmap=cmap, norm=norm,
+                                lat_min=lat_min, title=title)
+            if frame_type == "rect":
+                coll = num_plot_rect(axes[i,j], data_dict, cmap=cmap, norm=norm,
+                                     lat_min=lat_min, title=title)
+
+    # Set axis labels
+    if frame_type == "rect":
+        # add label to first column and last row
+        for i in [0, 1, 2]:
+            axes[i, 0].set_ylabel("MLAT [degree]", fontsize=9)
+        for i in range(4):
+            axes[2, i].set_xlabel("MLT", fontsize=9)
+
+        # Set x-axis tick labels
+        xlabels = [item.get_text() for item in axes[2,2].get_xticklabels()]
+        xlabels = [str(x) for x in range(18, 24, 3) + range(0, 9, 3)]
+        plt.xticks(range(-6, 9, 3), xlabels)
 
     # add colorbar
-    fig.subplots_adjust(right=0.78)
-    cbar_ax = fig.add_axes([0.83, 0.25, 0.02, 0.5])
+    fig.subplots_adjust(right=0.90)
+    cbar_ax = fig.add_axes([0.93, 0.25, 0.01, 0.5])
     add_cbar(fig, coll, bounds, cax=cbar_ax, label="Number of Measurements")
 
     # save the fig
+    fig_dir = "./plots/num_measurement_points/kp_l_3/data_in_mlt/by_imf_clock_angle/"
+    fig_name = "num_measurement_points_kp_dependence" + tmp_text + "_lat" +\
+               str(lat_range[0]) + "_to_lat" + str(lat_range[1]) +\
+               "_nvel_min_" + str(nvel_min)
     fig.savefig(fig_dir + fig_name + ".png", dpi=300, bbox_inches="tight")
-    #fig.savefig(fig_dir + fig_name + ".pdf", format="pdf")
+    #fig.savefig(fig_dir + fig_name + ".pdf", format="pdf", bbox_inches="tight")
     plt.close(fig)
-#    plt.show()
+    plt.show()
 
     return
 
@@ -406,5 +431,5 @@ def by_imf_clock_angle():
         return
 
 if __name__ == "__main__":
-    #by_season()
-    by_imf_clock_angle()
+    by_season()
+    #by_imf_clock_angle()
