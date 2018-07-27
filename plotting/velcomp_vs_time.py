@@ -11,7 +11,8 @@ import numpy as np
 
 def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
                glatc_list=None, title="xxx", add_err_bar=False,
-               color_list=None, marker_size=2, marker_type="o"):
+               color_list=None, marker_size=2, marker_type="o",
+               xlim=[-6, 6], ylim=[-80, 30]):
     
     """ plots the flow vectors in local time (MLT or SLT) coords
 
@@ -82,22 +83,21 @@ def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
 
     # set axis limits
     if center_at_zero_mlt:
-        #ax.set_xlim([-12, 12])
-        ax.set_xlim([-6, 6])
+        ax.set_xlim(xlim)
         # add legend
-        ax.legend(bbox_to_anchor=(1.01, 0.91), fontsize=6)
+        #ax.legend(bbox_to_anchor=(1.01, 0.91), fontsize=6)
         #ax.legend(loc="center right", fontsize=6)
     else:
-        ax.set_xlim([0, 24])
+        ax.set_xlim(xlim)
         # add legend
         #ax.legend(loc='center right', fontsize=8)
-        ax.legend(bbox_to_anchor=(0.65, 0.96), fontsize=8)
+        #ax.legend(bbox_to_anchor=(0.65, 0.96), fontsize=8)
 
     if veldir == "all":
-        ax.set_ylim([0, 60])
+        ax.set_ylim(ylim)
     else:
         #ax.set_ylim([-30, 30])
-        ax.set_ylim([-80, 30])
+        ax.set_ylim(ylim)
     
     # axis labels
     ax.set_ylabel("Vel [m/s]")
@@ -130,6 +130,8 @@ def by_season():
     veldir="meridional"
     center_at_zero_mlt=True
     #center_at_zero_mlt=False
+    xlim=[-6, 6]
+    ylim=[-80, 30]
 
     seasons = ["winter", "summer", "equinox"]
     #seasons = ["winter"]
@@ -185,7 +187,8 @@ def by_season():
             title = veldir[0].upper()+veldir[1:] + " Velocities, " +\
                     season[0].upper()+season[1:] + kp_text_dict[kp_text]
         vel_vs_lt(axes[i], data_dict, veldir=veldir, center_at_zero_mlt=center_at_zero_mlt,
-                glatc_list=glatc_list, title=title, add_err_bar=add_err_bar)
+                  glatc_list=glatc_list, title=title, add_err_bar=add_err_bar,
+                  xlim=xlim, ylim=ylim)
 
     # set axis label
     axes[-1].set_xlabel("MLT")
@@ -632,7 +635,7 @@ def by_kp(single_kp=True, single_lat=True):
 	    fig.savefig(fig_dir + fig_name + ".png", dpi=300)
 
 
-def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
+def by_imf_clock_angle(single_imf_bin=True, single_lat=False):
 
 
     # input parameters
@@ -643,65 +646,70 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
     if len(glatc_list) == 0:
         glatc_list = np.array([lat_range[0]]+0.5)
     
-    add_err_bar = False
     ftype = "fitacf"
     coords = "mlt"
+    seasons = ["winter"]
+    #seasons = ["winter", "equinox", "summer"]
+    #veldir="zonal"
+    veldir="meridional"
+    xlim=[-6, 6]
+    ylim=[-80, 30]
 
-    veldir="zonal"
-    #veldir="meridional"
     center_at_zero_mlt=True
     sqrt_weighting = True
+    add_err_bar = False
 
     years_txt = ""
     rads_txt = "six_rads"
     kp_text = "_kp_00_to_23"
-
-    #seasons = ["winter", "equinox", "summer"]
-    seasons = ["winter"]
     db_name = "master_" + coords + "_" + ftype + "_binned_by_imf_clock_angle"
 
-    # set the imf bins
-    sector_width = 60
-    sector_center_dist = 90
+    # Create clock angle bins
+    sector_center_dist = 45
+    sector_width = 40
+    # set bins for all clock angle ranges
     imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
-    bins_txt = ["Bz+", "By+", "Bz-", "By-"]
+    #imf_bins = [[-30, 30] for x in imf_bins]
+    # Determines how to place the imf_bins into panels,
+    # NOTE: must match with imf_bins
+    ax_idxs = [1, 2, 5, 8, 7, 6, 3, 0]
 
-    #imf_bins = [[330,30], [150, 210]]
-    #bins_txt = ["Bz+", "Bz-"]
-    #imf_bins = [[60,120], [240, 300]]
-    #bins_txt = ["By+", "By-"]
+#    # set bins for IMF clock angle near 90 or 270
+#    sector_centers = [80 - sector_width/2, 100 + sector_width/2,
+#                      260 - sector_width/2, 280 + sector_width/2]
+#    imf_bins = []
+#    for ctr in sector_centers:
+#        imf_bins.append([ctr - sector_width/2, ctr + sector_width/2])
 
-    bvec_max = 0.9
+#    #bins_txt = ["Bz+", "By+", "Bz-", "By-"]
+#    bins_txt = ["By+, Bz+", "By+, Bz-", "By-, Bz-", "By-, Bz+"]
+    bins_txt = ["Bz+", "By+/Bz+", "By+", "By+/Bz-",
+                "Bz-", "By-/Bz-", "By-", "By-/Bz+"]
+    tmp_txt = ""
+
+    # Set IMF stability conditions
+    bvec_max = 0.95
     before_mins=50
     after_mins=0
     del_tm=10
 
     fig_dir = "./plots/velcomp_vs_time/kp_l_3/data_in_mlt/binned_by_imf_clock_angle/"
+    # Plot one bin of data in a single panel for several LATs
     if single_imf_bin:
-	for season in seasons:
-	    if center_at_zero_mlt:
-		fig_name = "single_imf_bin_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
-			    "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1]) +\
-			    "_bfr" + str(before_mins) +\
-			    "_aftr" +  str(after_mins) +\
-			    "_bvec" + str(bvec_max).split('.')[-1]
-
-	    else:
-		fig_name = "single_imf_bin_" + season + "_" + veldir + "_vel_vs_ltm" +\
-			    "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1]) +\
-			    "_bfr" + str(before_mins) +\
-			    "_aftr" +  str(after_mins) +\
-			    "_bvec" + str(bvec_max).split('.')[-1]
-
+	for j, season in enumerate(seasons):
 	    # create subplots
-	    fig, axes = plt.subplots(nrows=2, ncols=len(imf_bins)/2, figsize=(12,6), 
+	    fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(12,6), 
 				     sharex=True, sharey=True)
 	    axes = [ax for l in axes for ax in l]
-	    fig.subplots_adjust(hspace=0.4)
+	    fig.subplots_adjust(hspace=0.3)
+            if len(imf_bins) == 1:
+                axes = [axes]
 
 	    # fetches the data from db 
 	    data_dict_list = []
 	    for i, imf_bin in enumerate(imf_bins):
+                ax_idx = ax_idxs[i]
+		ax = axes[ax_idx]
 		input_table = "master_fit_" + rads_txt + kp_text + \
 			       "_b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
 			       "_bfr" + str(before_mins) +\
@@ -709,15 +717,13 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
 			       "_bvec" + str(bvec_max).split('.')[-1]
 
 		data_dict = fetch_data(input_table, lat_range=lat_range,
-			    nvel_min=nvel_min, season=season,
-			    config_filename="../mysql_dbconfig_files/config.ini",
-			    section="midlat", db_name=db_name, ftype=ftype,
-			    coords=coords, sqrt_weighting=sqrt_weighting)
+                                       nvel_min=nvel_min, season=season,
+                                       config_filename="../mysql_dbconfig_files/config.ini",
+                                       section="midlat", db_name=db_name, ftype=ftype,
+                                       coords=coords, sqrt_weighting=sqrt_weighting)
 		data_dict_list.append(data_dict)
 
 		# Plot the flow vector components for each imf bin
-		#markers = ['o', '+', '*', '.']
-		ax = axes[i]
 		if veldir == "all" :
 		    title = "Velocity Magnitude, " + season[0].upper()+season[1:] + r", Kp $\leq$ 2+"
 		else:
@@ -727,42 +733,58 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
 		vel_vs_lt(ax, data_dict_list[i], veldir=veldir,
 			  center_at_zero_mlt=center_at_zero_mlt,
 			  glatc_list=glatc_list, title=title, add_err_bar=add_err_bar,
-			  color_list=None, marker_size=3)
+			  color_list=None, marker_size=3, xlim=xlim, ylim=ylim)
 
 		# change the font
 		for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
 			     ax.get_xticklabels() + ax.get_yticklabels()):
-		    item.set_fontsize(14)
+		    item.set_fontsize(9)
 		ax.legend().set_visible(False)
 
-	    # set axis label
-	    if center_at_zero_mlt:
-		xlabels = [item.get_text() for item in axes[-1].get_xticklabels()]
-		xlabels = [str(x) for x in range(18, 24, 3) + range(0, 9, 3)]
-		plt.xticks(range(-6, 9, 3), xlabels)
+            # Plot the center axis for IMF clock angle
+            plot_center_axis(axes[4], sector_center_dist=sector_center_dist,
+                             sector_width=sector_width,
+                             lat_range=lat_range, xlim=xlim, ylim=ylim)
 
-	    # add label to last row
-	    for i in range(2,4):
-		axes[i].set_xlabel("MLT")
-		#axes[i].set_xlabel("Solar Local Time")
 
+            # Set axis labels
+	    # Add label to first column and last row
+	    for i in [0, 3, 6]:
+		axes[i].set_ylabel("MLAT [degree]", fontsize=9)
+	    for i in range(6,9):
+		axes[i].set_xlabel("MLT", fontsize=9)
+   
+                # Set x-axis tick labels
+            if center_at_zero_mlt:
+                xlabels = [item.get_text() for item in axes[-1].get_xticklabels()]
+                xlabels = [str(x) for x in range(18, 24, 3) + range(0, 9, 3)]
+                plt.xticks(range(-6, 9, 3), xlabels)
+	
 	    # add legend
-	    #axes[2].legend(bbox_to_anchor=(1.05, 1.00), fontsize=6)
-	    lg = axes[1].legend()
-            legend_txt = [str(x) for x in glatc_list]
-	    txts = lg.get_texts()
-	    for i in range(len(legend_txt)):
-		txts[i].set_text(legend_txt[i])
-		txts[i].set_fontsize(11)
-	    lg.set_bbox_to_anchor((1.25, 0.21))
-
+	    axes[3].legend(bbox_to_anchor=(1.02, 0.92), fontsize=7)
 
 	    # save the fig
-            plt.figtext(0.5, 0.95, "Stable IMF Interval = " + str(before_mins+del_tm) + " mins",
-                        ha="center", fontsize=15)
-	    fig.savefig(fig_dir + fig_name + ".png", dpi=300)
+	    if center_at_zero_mlt:
+		fig_name = tmp_txt + season + "_" + veldir + "_vel_vs_ltm_c0" +\
+			    "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1]) +\
+			    "_bfr" + str(before_mins) +\
+			    "_aftr" +  str(after_mins) +\
+			    "_bvec" + str(bvec_max).split('.')[-1]
+	    else:
+		fig_name = tmp_txt + season + "_" + veldir + "_vel_vs_ltm" +\
+			    "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1]) +\
+			    "_bfr" + str(before_mins) +\
+			    "_aftr" +  str(after_mins) +\
+			    "_bvec" + str(bvec_max).split('.')[-1]
+            #plt.figtext(0.5, 0.95, "Stable IMF Interval = " + str(before_mins+del_tm) + " mins",
+            #            ha="center", fontsize=15)
+	    fig.savefig(fig_dir + fig_name + ".png", dpi=300, bbox_inches="tight")
+	    #fig.savefig(fig_dir + fig_name + ".pdf", format="pdf", bbox_inches="tight")
+            plt.close(fig)
 
+    # Plot several bins of data in a single panel for a single LAT
     if single_lat:
+        # NOTE: May need some modifitation
 	del_lat=1
 	lat_range=[52, 61]
 	#glatc_list = np.arange(lat_range[1]-0.5, lat_range[0]-0.5, -del_lat)
@@ -770,13 +792,13 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
 
 	for season in seasons:
 	    if center_at_zero_mlt:
-		fig_name = "single_lat_" + season + "_" + veldir + "_vel_vs_ltm_c0" +\
+		fig_name = "single_lat_" + tmp_txt + season + "_" + veldir + "_vel_vs_ltm_c0" +\
 			    "_bfr" + str(before_mins) +\
 			    "_aftr" +  str(after_mins) +\
-			    "_bvec" + str(bvec_max).split('.')[-1] + "_Bz"
+			    "_bvec" + str(bvec_max).split('.')[-1]
 
 	    else:
-		fig_name = "single_lat_" + season + "_" + veldir + "_vel_vs_ltm" +\
+		fig_name = "single_lat_" + tmp_txt + season + "_" + veldir + "_vel_vs_ltm" +\
 			    "_bfr" + str(before_mins) +\
 			    "_aftr" +  str(after_mins) +\
 			    "_bvec" + str(bvec_max).split('.')[-1]
@@ -804,7 +826,8 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
 		data_dict_list.append(data_dict)
 
 		#color_list = ['darkblue', 'b', 'dodgerblue', 'c', 'g', 'orange', 'r']
-		color_list = ['k', 'b', 'g', 'r']
+		#color_list = ['k', 'b', 'g', 'r']
+		color_list = ['k', 'r']
 		for j, latc in enumerate(glatc_list):
 		    ax = axes[j]
 		    # plot the flow vector components for each latitude
@@ -853,9 +876,50 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=True):
 
     return
 
+def plot_center_axis(ax, sector_center_dist=45, sector_width=40,
+                     lat_range=[52, 59],
+                     xlim=[-6, 6], ylim=[-80, 30]):
+
+    import numpy as np
+
+    # Plot arrows
+    height = ylim[1] - ylim[0]
+    width = xlim[1] - xlim[0]
+    #axis_ratio = 1. * height/width
+    axis_ratio = 1. * height/width
+    aspect_ratio = 0.5
+    arrow_len = 0.3 * width    # Arrow length along x-axis
+    x1 = xlim[0] + width/2.
+    y1 = ylim[0] + height/2.
+    imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
+    for i, imf_bin in enumerate(imf_bins):
+        sector_center = np.mean(imf_bin)
+        len_x = aspect_ratio * arrow_len * np.sin(np.deg2rad(sector_center))
+        len_y =  axis_ratio * arrow_len * np.cos(np.deg2rad(sector_center))
+        ax.arrow(x1, y1, len_x, len_y, head_width=0.00*arrow_len,
+                 head_length=0.0*arrow_len, fc='k', ec='k')
+
+    # Add x-y axis names
+    xy_By = (x1 + 1.15*aspect_ratio*arrow_len, y1)
+    xy_Bz = (x1, y1 + 1.15*axis_ratio*arrow_len)
+    ax.annotate("By+", xy=xy_By, ha="left", va="center")
+    ax.annotate("Bz+", xy=xy_Bz, ha="center", va="bottom")
+
+    # Set title
+    ax.set_title("IMF Clock Angle", fontsize="medium")
+
+    # remove tikcs and frames
+    ax.tick_params(axis='both', which='both', bottom='off', top='off',
+                   left="off", right="off", labelbottom='off', labelleft='off')
+    ax.axis("off")
+
+    return
+
+
 if __name__ == "__main__":
     #by_season()
     #six_rads_by_year()
     #by_pairs_of_radars()
     #by_kp(single_kp=True, single_lat=True)
+    #by_imf_clock_angle(single_imf_bin=False, single_lat=True)
     by_imf_clock_angle(single_imf_bin=True, single_lat=False)
