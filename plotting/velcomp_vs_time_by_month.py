@@ -51,7 +51,7 @@ def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
         # plot the velocities for each MLAT
         ax.scatter(vel_mlt_jj, vel_comp_jj, c=color_list[jj],
                 #marker='o', s=3, linewidths=.5, edgecolors='face', label=str(int(mlat)))
-                marker='o', s=0.3, linewidths=.5, edgecolors='face', label=str(mlat))
+                marker='o', s=1, linewidths=.5, edgecolors='face', label=str(mlat))
 
         if add_err_bar:
             ax.errorbar(vel_mlt_jj, vel_comp_jj, yerr=vel_comp_err_jj, mfc=color_list[jj],
@@ -81,10 +81,11 @@ def vel_vs_lt(ax, data_dict, veldir="zonal", center_at_zero_mlt=True,
     if veldir == "all":
         ax.set_ylim([0, 60])
     else:
-        ax.set_ylim([-75, 25])
-    
-    # axis labels
-    ax.set_ylabel("Vel [m/s]")
+        #ax.set_ylim([-75, 25])
+        ax.set_ylim([-80, 30])
+    ax.yaxis.set_major_locator(MultipleLocator(base=20))
+
+    ax.tick_params(axis="both", direction="in")
 
     return
 
@@ -129,14 +130,14 @@ def main():
 
     fig_dir = "./plots/velcomp_vs_time_by_month/kp_l_3/data_in_mlt/"
     if center_at_zero_mlt:
-        fig_name = rads_txt + "_" + rads_txt + "_"+ veldir + "_vel_vs_ltm_c0" +\
+        fig_name = rads_txt + "_" + month_txt + "_"+ veldir + "_vel_vs_ltm_c0" +\
                    "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
     else:
-        fig_name = rads_txt + "_" + rads_txt + "_" + veldir+ "_vel_vs_ltm" +\
+        fig_name = rads_txt + "_" + month_txt + "_" + veldir+ "_vel_vs_ltm" +\
                    "_lat" + str(lat_range[0]) + "_to_lat" + str(lat_range[1])
 
     # create subplots
-    fig, axes = plt.subplots(nrows=3, ncols=4, figsize=(10,6),
+    fig, axes = plt.subplots(nrows=3, ncols=4, figsize=(12,5),
                              sharex=True, sharey=True)
     axes = [ax for l in axes for ax in l]
     fig.subplots_adjust(hspace=0.3)
@@ -165,12 +166,12 @@ def main():
         # change the font
         for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
                      ax.get_xticklabels() + ax.get_yticklabels()):
-            item.set_fontsize(7)
+            item.set_fontsize(9)
 
-    # remove labels
-    for ax in axes:
-	ax.set_xlabel("")
-	ax.set_ylabel("")
+#    # remove labels
+#    for ax in axes:
+#	ax.set_xlabel("")
+#	ax.set_ylabel("")
 
     # add label to first column and last row
     for i in [0, 4, 8]:
@@ -185,8 +186,9 @@ def main():
         plt.xticks(range(-6, 9, 3), xlabels)
 
     # add legend
-    #axes[7].legend(bbox_to_anchor=(1.05, 1.00), fontsize=8, frameon=True)
-    axes[4].legend(loc="lower left", fontsize=4, frameon=True)
+    #axes[4].legend(loc="lower left", fontsize=4, frameon=True)
+    axes[7].legend(loc="upper right", bbox_to_anchor=(1.33, 1.02),
+                   fontsize=7, frameon=True)
 
     # save the fig
     fig.savefig(fig_dir + fig_name + ".png", dpi=300, bbox_inches="tight")
