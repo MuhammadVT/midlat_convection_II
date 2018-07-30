@@ -169,8 +169,12 @@ class gmi_imf_to_db(object):
             # loop through each day withing sdtm and edtm
             day_num = (edtm-sdtm).days + 1
             for n in xrange(day_num):
-                kp_tmp = Kp_list[n].kp
-                time_tmp = Kp_list[n].time
+                try:
+                    kp_tmp = Kp_list[n].kp
+                    time_tmp = Kp_list[n].time
+                except:
+                    print("Latest available Kp record is " + str(Kp_list[-1]))
+                    break
                 if kp_tmp is not None:
                     if len(kp_tmp) < 8 or len(kp_tmp) > 8:
                         print(str(len(kp_tmp))  + " values for the day " +\
@@ -187,7 +191,7 @@ class gmi_imf_to_db(object):
                                 data_dict['kp'].append(int(kp_tmp[l][0]))
                             data_dict['datetime'].append(time_tmp + dt.timedelta(hours=3*l))
 
-            # update sdtm
+            # update sdtm to the first day of next year
             sdtm = edtm + dt.timedelta(days=1)
 
         # move to db
@@ -333,12 +337,13 @@ class gmi_imf_to_db(object):
 
 def main():
     import datetime as dt
-    stm = dt.datetime(2010, 1, 1)
-    etm = dt.datetime(2018, 7, 1)
-    #db_name = None
-    db_name = "test_gmi_imf.sqlite"
-    #base_location = "../../data/sqlite3/"
-    base_location = "/home/sd-spare/muhammad/github_repos/convection_response_to_sudden_imf_turning/data/sqlite3/"
+    #stm = dt.datetime(2010, 1, 1)
+    stm = dt.datetime(2017, 1, 1)
+    etm = dt.datetime(2018, 7, 2)
+    db_name = None
+    #db_name = "test_gmi_imf.sqlite"
+    base_location = "../../data/sqlite3/"
+    #base_location = "/home/sd-spare/muhammad/github_repos/convection_response_to_sudden_imf_turning/data/sqlite3/"
 
     kp_lim = None
     symh_lim = None
@@ -359,15 +364,15 @@ def main():
 #    print "F107 is done"
 
 
-#    # store kp into db
-#    print "storing kp to db"
-#    gmi.kp_to_db(kp_lim=kp_lim)
-#    print "kp is done"
+    # store kp into db
+    print "storing kp to db"
+    gmi.kp_to_db(kp_lim=kp_lim)
+    print "kp is done"
 
-    # store symh into db
-    print "storing symh to db"
-    gmi.symh_to_db(symh_lim=symh_lim)
-    print "symh is done"
+#    # store symh into db
+#    print "storing symh to db"
+#    gmi.symh_to_db(symh_lim=symh_lim)
+#    print "symh is done"
 
 #    # store AU, AL, AE into db
 #    print "storing AU, AL, AE to db"

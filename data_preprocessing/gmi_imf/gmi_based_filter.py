@@ -1,4 +1,4 @@
-def gmi_based_filter(rad, output_table, ftype="fitacf", coords="mlt",
+def gmi_based_filter(rad, output_table, stm=None, etm=None, ftype="fitacf", coords="mlt",
                      isKp_based=True, kp_lim=[0.0, 2.3],
                      isSymH_based=False, symh_min=-50,
 		     config_filename="../mysql_dbconfig_files/config.ini",
@@ -14,6 +14,13 @@ def gmi_based_filter(rad, output_table, ftype="fitacf", coords="mlt",
         Three-letter name of a radar whose data will be filtered.
     output_table : str
         Name of the table where filtered iscat data will be stored.
+    stm : datetime.datetime
+        The start time.
+        Default to None, in which case takes the earliest in db.
+    etm : datetime.datetime
+        The end time.
+        Default to None, in which case takes the latest time in db.
+        NOTE: if stm is None then etm should also be None, and vice versa.
     ftype : str
         SuperDARN LOS data file type
     coords : str
@@ -90,8 +97,17 @@ def gmi_based_filter(rad, output_table, ftype="fitacf", coords="mlt",
     # select the time intervals based on Kp 
     if isKp_based:
         tbl_nm = "kp"
-        command = "SELECT datetime FROM {tb} WHERE kp BETWEEN {kp_min} AND {kp_max}"
-        command = command.format(tb=tbl_nm, kp_min=kp_lim[0],kp_max=kp_lim[1])
+        # do the convertion to the data between stm and etm
+        if (stm is not None) and (etm is not None):
+	    command = "SELECT datetime FROM {tb} WHERE (datetime BETWEEN '{sdtm}' AND '{edtm}') " +\
+		      "AND (kp BETWEEN {kp_min} AND {kp_max})"
+	    command = command.format(tb=tbl_nm, sdtm=stm, edtm=etm,
+				     kp_min=kp_lim[0],kp_max=kp_lim[1])
+
+        # do the convertion to the data between stm and etm if any of them is None
+	else:
+	    command = "SELECT datetime FROM {tb} WHERE kp BETWEEN {kp_min} AND {kp_max}"
+	    command = command.format(tb=tbl_nm, kp_min=kp_lim[0],kp_max=kp_lim[1])
         cur_gmi.execute(command)
         dtms = cur_gmi.fetchall()
         dtms = [x[0] for x in dtms]
@@ -182,7 +198,7 @@ def gmi_based_filter(rad, output_table, ftype="fitacf", coords="mlt",
 
     return
 
-def worker(rad, output_table, ftype="fitacf", coords="mlt",
+def worker(rad, output_table, stm=None, etm=None, ftype="fitacf", coords="mlt",
            isKp_based=True, kp_lim=[0.0, 2.3],
            isSymH_based=False, symh_min=-50,
 	   config_filename="../../mysql_dbconfig_files/config.ini",
@@ -194,7 +210,7 @@ def worker(rad, output_table, ftype="fitacf", coords="mlt",
     # filter the data
     print("Start filtering data from " + rad)
     t1 = dt.datetime.now()
-    gmi_based_filter(rad, output_table, ftype=ftype, coords=coords,
+    gmi_based_filter(rad, output_table, stm=stm, etm=etm, ftype=ftype, coords=coords,
                      isKp_based=isKp_based, kp_lim=kp_lim,
                      isSymH_based=isSymH_based, symh_min=symh_min,
 		     config_filename="../../mysql_dbconfig_files/config.ini",
@@ -216,11 +232,17 @@ def main(run_in_parallel=False):
     import logging
 
     # initialize parameters
+    #stm = None
+    #etm = None
+    stm = dt.datetime(2017, 1, 1)
+    etm = dt.datetime(2018, 7, 1)
+
     #rad_list = ["hok", "hkw"]
     #rad_list = ["ade", "adw"]
     rad_list = ['bks', 'wal', 'fhe', 'fhw', 'cve', 'cvw'] 
-    #kp_lim = [0.0, 2.3]    # the range boundaries are inclusive
-    kp_lim = [0.0, 1.3]    # the range boundaries are inclusive
+
+    kp_lim = [0.0, 2.3]    # the range boundaries are inclusive
+    #kp_lim = [0.0, 1.3]    # the range boundaries are inclusive
     #kp_lim = [0.0, 0.3]    # the range boundaries are inclusive
     #kp_lim = [0.7, 1.3]    # the range boundaries are inclusive
     #kp_lim = [1.7, 2.3]    # the range boundaries are inclusive
@@ -252,7 +274,7 @@ def main(run_in_parallel=False):
     for rad in rad_list: 
         if run_in_parallel:
             # cteate a process
-            worker_kwargs = {"ftype":ftype, "coords":coords,
+            worker_kwargs = {"stm":stm, "etm":etm, "ftype":ftype, "coords":coords,
 			     "isKp_based": isKp_based, "kp_lim": kp_lim,
 			     "isSymH_based": isSymH_based, "symh_min": symh_min,
                              "config_filename":"../../mysql_dbconfig_files/config.ini",
@@ -269,7 +291,7 @@ def main(run_in_parallel=False):
             
         else:
             # run in serial
-	    worker(rad, output_table, ftype=ftype, coords=coords,
+	    worker(rad, output_table, stm=stm, etm=etm, ftype=ftype, coords=coords,
 			 isKp_based=isKp_based, kp_lim=kp_lim,
 			 isSymH_based=isSymH_based, symh_min=symh_min,
 			 config_filename="../../mysql_dbconfig_files/config.ini",
