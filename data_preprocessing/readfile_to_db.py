@@ -197,7 +197,11 @@ def worker(conn, rad, ctr_date, ftype, params, ffname, tmpdir):
 def main():
     """ Call the functions above. Acts as an example code.
     Multiprocessing has been implemented to do parallel computing.
-    The unit process is for reading a day worth of data for a given radar"""
+    The unit process is for reading a day worth of data for a given radar
+
+    NOTE: NO need to worry about the sd data in tmp dir because they will 
+    be removed after using them. 
+    """
     
     import datetime as dt
     import multiprocessing as mp
@@ -210,14 +214,14 @@ def main():
 
     # create a log file to which any error occured between client and 
     # MySQL server communication will be written
-    logging.basicConfig(filename="./log_files/boxcar_filtered_data_to_db_bpk.log",
+    logging.basicConfig(filename="./log_files/boxcar_filtered_data_to_db_six_rads.log",
                         level=logging.INFO)
 
     # input parameters
-    sdate = dt.datetime(2015, 1, 1)     # includes sdate
+    sdate = dt.datetime(2017, 1, 1)     # includes sdate
 #    sdate = dt.datetime(2016, 6, 21)     # includes sdate
 #    edate = dt.datetime(2015, 1, 1)     # does not include edate
-    edate = dt.datetime(2017, 1, 1)     # does not include edate
+    edate = dt.datetime(2018, 7, 1)     # does not include edate
     channel = None
     params=['velocity']
     ftype = "fitacf"
@@ -227,8 +231,8 @@ def main():
     #rad_list = ["hok", "hkw", "ade", "adw"]
     #rad_list = ["ade", "adw"]
     # rad_list = ["tig", "unw"]
-    # rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
-    rad_list = ["bpk"]
+    rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+    #rad_list = ["bpk"]
 
     # create tmpdirs to store dmap files temporarily
     for rad in rad_list:

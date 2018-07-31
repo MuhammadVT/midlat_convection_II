@@ -239,7 +239,7 @@ class iscat(object):
         return
 
 def worker(rad, ctr_date, localdict, params, tmpdir=None,
-	   low_vel_iscat_event_only=False,
+	   low_vel_iscat_event_only=True,
            search_allbeams=True, no_gscat=True,
 	   data_from_db=True,
            config_filename="../mysql_dbconfig_files/config.ini",
@@ -290,13 +290,13 @@ def main():
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/iscat_to_db_tig_unw.log",
+    logging.basicConfig(filename="./log_files/iscat_to_db_six_rads.log",
                         level=logging.INFO)
 
     # input parameters
-    sdate = dt.datetime(2011, 1, 1)     # includes sdate
+    sdate = dt.datetime(2017, 1, 1)     # includes sdate
 #    sdate = dt.datetime(2011, 8, 1)     # includes sdate
-    edate = dt.datetime(2017, 1, 1)     # does not include edate
+    edate = dt.datetime(2018, 7, 1)     # does not include edate
     channel = None
     params=['velocity']
     ftype = "fitacf"
@@ -310,9 +310,9 @@ def main():
     # run the code for the following radars in parallel
     #rad_list = ["hok", "hkw"]
     #rad_list = ["ade", "adw"]
-    rad_list = ["tig", "unw"]
+    #rad_list = ["tig", "unw"]
     #rad_list = ["bpk"]
-    #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+    rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
 
     # create dbs (if not exist) for radars
     for rad in rad_list:

@@ -196,7 +196,6 @@ def bin_to_grid(rad, bmnum, stm=None, etm=None, ftype="fitacf",
         # pass if the column gazmc exists
         pass
 
-    # do the convertion to all the data in db if stm and etm are all None
     if coords == "mlt":
 	col_latc = "mag_latc"
 	col_ltc = "mag_ltc"
@@ -206,6 +205,7 @@ def bin_to_grid(rad, bmnum, stm=None, etm=None, ftype="fitacf",
 	col_ltc = "geo_ltc"
 	col_azmc = "geo_azmc"
 
+    # do the convertion to the data between stm and etm
     if (stm is not None) and (etm is not None):
         command = "SELECT {latc}, {lonc}, {azm}, datetime FROM {tb} " +\
                   "WHERE datetime BETWEEN '{sdtm}' AND '{edtm}' ORDER BY datetime ASC"
@@ -359,8 +359,11 @@ def main(run_in_parallel=True):
                         level=logging.INFO)
     
     # input parameters
-    stm = None 
-    etm = None 
+    #stm = None 
+    #etm = None 
+    stm = dt.datetime(2017, 1, 1)
+    etm = dt.datetime(2018, 7, 1)
+
     ftype = "fitacf"
     coords="mlt"         # set this to "geo" if you want to remain in "geo" coords
     db_name = None       # if set to None default iscat db would be read. 

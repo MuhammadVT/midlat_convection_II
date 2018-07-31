@@ -175,15 +175,13 @@ def main(run_in_parallel=True):
         #ftype = "fitex"
         sctr_day = dt.datetime(yr,1,1)
         ectr_day = dt.datetime(yr+1,7,1)
+        #ectr_day = dt.datetime(yr,7,1)
 
-        rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+        #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+        rad_list = ["wal", "fhe", "fhw", "cve", "cvw"]
         #rad_list = ["bks",  "wal", "fhe"]
         #rad_list = ["fhw", "cve", "cvw"]
         #rad_list = ["bks"]
-        #rad_list = ["tig", "unw"]
-        #rad_list = ["bpk", "hok", "hkw"]
-        #rad_list = ["hok", "hkw"]
-        #rad_list = ["ade", "adw"]
         channel = None
         #channel = '.'
 
@@ -193,7 +191,7 @@ def main(run_in_parallel=True):
     return
 
 if __name__ == "__main__":
-    main(run_in_parallel=False)
-    #main(run_in_parallel=True)
+    #main(run_in_parallel=False)
+    main(run_in_parallel=True)
 
 

@@ -329,7 +329,7 @@ def master_summary_by_radar_season(input_table, output_table, coords="mlt", db_n
     """ stores the summay statistics of the data in master table into 
     a different table in the same database.
     Time and rad informatin are all lost at this point.
-    NOTE: this function is only used selecet for pairs of radars from the
+    NOTE: this function is only used to selecet for pairs of radars from the
     six U.S. radars. 
 
     Parameters
@@ -877,8 +877,8 @@ def main(master_table=True, master_summary_table=True):
     #selected_years=[2011, 2012]
     #years_txt = "_years_" + "_".join([str(x) for x in selected_years])
     years_txt = ""
-    #kp_text = "_kp_00_to_23"
-    kp_text = "_kp_00_to_13"
+    kp_text = "_kp_00_to_23"
+    #kp_text = "_kp_00_to_13"
 
     input_table_1 = rads_txt + kp_text + "_fitacf"
     output_table_1 = "master_" + rads_txt + kp_text
@@ -939,7 +939,7 @@ def main(master_table=True, master_summary_table=True):
 
     return
 
-def main_imf(master_table=True, master_summary_table=True):
+def main_imf(master_table=False, master_summary_table=True):
     import datetime as dt
     import logging
     import numpy as np
@@ -950,6 +950,7 @@ def main_imf(master_table=True, master_summary_table=True):
     config_filename="../mysql_dbconfig_files/config.ini"
     section="midlat"
 
+    # Construct DB name
     #selected_years=[2011, 2012]
     #years_txt = "_years_" + "_".join([str(x) for x in selected_years])
     years_txt = ""
@@ -957,30 +958,40 @@ def main_imf(master_table=True, master_summary_table=True):
     input_dbname = "master_" + coords + "_" + ftype + "_binned_by_imf_clock_angle"
     output_dbname = "master_" + coords + "_" + ftype + "_binned_by_imf_clock_angle"
 
-    # set the imf bins
-    sector_width = 60
-    sector_center_dist = 90
+    # Create IMF bins
+    sector_center_dist = 45
+    sector_width = 40
+    # set bins for all clock angle range
     imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
 
-    bvec_max = 0.85
-    before_mins=80
+#    # set bins for IMF clock angle near 90 or 270
+#    sector_width = 40
+#    sector_centers = [80 - sector_width/2, 100 + sector_width/2,
+#                      260 - sector_width/2, 280 + sector_width/2]
+#    imf_bins = []
+#    for ctr in sector_centers:
+#        imf_bins.append([ctr - sector_width/2, ctr + sector_width/2])
+
+    # Set IMF stability conditions
+    bvec_max = 0.90
+    before_mins=50
     after_mins=0
     del_tm=10
-    kp_text = "_kp_00_to_23"
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
+    kp_text = "_kp_00_to_23"
     logging.basicConfig(filename="./log_files/master_summary_" + rads_txt + \
                         kp_text + "_binned_by_imf_clock_angle.log",
                         level=logging.INFO)
 
     for imf_bin in imf_bins:
+        # Construct table names
         input_table = "master_" + rads_txt + kp_text + \
                          "_b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
                          "_bfr" + str(before_mins) +\
                          "_aftr" +  str(after_mins) +\
                          "_bvec" + str(bvec_max).split('.')[-1]
-
         output_table = "master_smry_" + rads_txt + kp_text +\
                          "_b" + str((imf_bin[0]%360)) + "_b" + str(imf_bin[1]%360) +\
                          "_bfr" + str(before_mins) +\
@@ -988,19 +999,19 @@ def main_imf(master_table=True, master_summary_table=True):
                          "_bvec" + str(bvec_max).split('.')[-1]
 
 	if master_table:
-            # A master table has already been created by imf_based_filter,
+            # NOTE: A master table has already been created by imf_based_filter,
             # no need to create one here.
             pass
 	   
 	if master_summary_table:
 	    # build a summary table
-	    print "building a master_summary table"
+	    print "building a master_summary table for IMF bin " + str(imf_bin)
 	    master_summary_by_season(input_table, output_table, coords=coords,
 				   db_name=output_dbname,
 				   config_filename="../mysql_dbconfig_files/config.ini",
 				   section="midlat")
 
-	    print "A master_summary has been built"
+	    print "A master_summary has been built for IMF bin " + str(imf_bin)
 
     return
 
