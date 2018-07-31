@@ -385,8 +385,8 @@ def main():
     sqrt_weighting = True
     #cmap_type = "discrete"
     cmap_type = "continuous"
-    #frame_type = "circ"    # options: "rect" or "circ"
-    frame_type = "rect"
+    frame_type = "circ"    # options: "rect" or "circ"
+    #frame_type = "rect"
 
     rads_txt = "six_rads"
     #rads_txt = "cve_cvw"
@@ -464,12 +464,8 @@ def main():
         plt.xticks(range(-6, 9, 3), xlabels)
 
     # add colorbar
-    if frame_type == "circ":
-        cbar_right = 0.90
-        cbar_size = [0.93, 0.35, 0.01, 0.3]
-    if frame_type == "rect":
-        cbar_right = 0.90
-        cbar_size = [0.93, 0.35, 0.01, 0.3]
+    cbar_right = 0.90
+    cbar_size = [0.93, 0.25, 0.01, 0.5]
     fig.subplots_adjust(right=cbar_right)
     cbar_ax = fig.add_axes(cbar_size)
     add_cbar(fig, coll, bounds=bounds, cax=cbar_ax, label="Speed [m/s]")

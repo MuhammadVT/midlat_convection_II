@@ -501,7 +501,6 @@ def main():
 	if len(imf_bins) == 1:
 	    axes = [axes]
 
-        ax_i = 0
 	for i, imf_bin in enumerate(imf_bins):
             ax_idx = ax_idxs[i]
             # Construct DB table name

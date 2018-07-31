@@ -101,7 +101,7 @@ def num_plot_rect(ax, data_dict, cmap=None, norm=None,
 
     #do the actual overlay
     ccoll = ax.scatter(x1, y1,
-                       s=4.0,zorder=10,marker='o', c=np.abs(np.array(intensities)),
+                       s=3.5,zorder=10,marker='o', c=np.abs(np.array(intensities)),
                        linewidths=.5, edgecolors='face'
                        ,cmap=cmap,norm=norm)
 
@@ -286,8 +286,6 @@ def by_imf_clock_angle():
     #nvel_min=300
     nvel_min=100
     lat_range=[52, 59]
-    #lat_range=[40, 60]
-    #lat_min = 43
     lat_min = 50
 
     #frame_type = "circ"    # options: "rect" or "circ"

@@ -511,7 +511,7 @@ def by_kp(single_kp=True, single_lat=False):
                 if veldir == "all" :
                     title = "Velocity Magnitude, " + season[0].upper()+season[1:] + kp_text_dict[kp_text]
                 else:
-                    title = veldir[0].upper()+veldir[1:] + " Vel, " +\
+                    title = veldir[0].upper()+veldir[1:] + " Flow, " +\
                             season[0].upper()+season[1:] + kp_text_dict[kp_text]
                 vel_vs_lt(ax, data_dict_list[i], veldir=veldir,
                           center_at_zero_mlt=center_at_zero_mlt,
@@ -743,8 +743,7 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=False):
 
             # Plot the center axis for IMF clock angle
             plot_center_axis(axes[4], sector_center_dist=sector_center_dist,
-                             sector_width=sector_width,
-                             lat_range=lat_range, xlim=xlim, ylim=ylim)
+                             sector_width=sector_width, xlim=xlim, ylim=ylim)
 
 
             # Set axis labels
@@ -877,7 +876,6 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=False):
     return
 
 def plot_center_axis(ax, sector_center_dist=45, sector_width=40,
-                     lat_range=[52, 59],
                      xlim=[-6, 6], ylim=[-80, 30]):
 
     import numpy as np
