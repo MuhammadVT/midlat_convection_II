@@ -1,10 +1,10 @@
 #########################
 # About boxcar filtered fitacf DATA files you have processed and stored in /sd-data/backup
-NOTE: I will focused on data from 01/01/2011 to 01/01/2017
+NOTE: I will focused on data from 01/01/2011 to 01/01/2018
 
 Northern Hemisphere:
 
-Data for bks, wal, fhe, fhw, cve, cvw are available for 01/01/2011 - 01/01/2017.
+Data for bks, wal, fhe, fhw, cve, cvw are available for 01/01/2011 - 07/01/2018.
 
 Data from ade and adw are available for 01/01/2013 - 01/01/2017. 
 
@@ -24,7 +24,7 @@ from 12/01/2014.
 #########################
 # boxcar filetered data stored in MySQL db
 
-bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 07/01/2018, Done
 ade, adw: 01/01/2013 - 01/01/2017, Done
 hok, hkw: 01/01/2015 - 01/01/2017, Done
 bpk: 01/01/2015 - 01/01/2017, Done
@@ -34,7 +34,7 @@ tig, unw: 01/01/2011 - 01/01/2017, Done
 #########################
 # iscat data (low_vel_iscat_event_only is set to True) stored in MySQL db
 
-bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - Done
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 07/01/2018,  Done
 ade, adw : 01/01/2013 - 01/01/2017, Done
 hok, hkw: 01/01/2015 - 01/01/2017, Done
 bpk : 01/01/2015 - 01/01/2017, Done 
@@ -42,50 +42,55 @@ tig, unw: 01/01/2011 - 01/01/2017, Done
 
 
 # iscat data (low_vel_iscat_event_only is set to False) stored in MySQL db
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 07/01/2018,
 
 
 #########################
 # calc_geolatc_geolonc
-bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 07/01/2018, Done
 ade, adw : 01/01/2013 - 01/01/2017, Done
-hok, hkw: 01/01/2015 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done  (alt not set to 300km)
 
 # geo_to_mlt
-bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 07/01/2018, Done
 ade, adw : 01/01/2013 - 01/01/2017, Done
-hok, hkw: 01/01/2015 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done  (alt not set to 300km)
 
 # bin_data
-bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 07/01/2018, Done
 ade, adw : 01/01/2013 - 01/01/2017, Done
-hok, hkw: 01/01/2015 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done  (alt not set to 300km)
 
 ##########################
 # ten_min_median
-bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 07/01/2018, Done
 ade, adw : 01/01/2013 - 01/01/2017, Done
-hok, hkw: 01/01/2015 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done  (alt not set to 300km)
 
 # combine ten_min_median
-bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 07/01/2018, Done
 ade, adw : 01/01/2013 - 01/01/2017, Done
-hok, hkw: 01/01/2015 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done  (alt not set to 300km)
+
+# gmi_based_filter (very slow)
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 07/01/2018, Done
+ade, adw : 01/01/2013 - 01/01/2017, Done 
+hok, hkw: 01/01/2015 - 01/01/2017, Done  (alt not set to 300km)
 
 # gmi_based_filter
-bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
-ade, adw : 01/01/2013 - 01/01/2017, Done 
-hok, hkw: 01/01/2015 - 01/01/2017, Done
+bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 07/01/2018, Done
+
 
 ##########################
 # build master db
 bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
 ade, adw : 01/01/2013 - 01/01/2017, Done
-hok, hkw: 01/01/2015 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done  (alt not set to 300km)
 
 # cosfit
 bks, wal, fhe, fhw, cve, cvw: 01/01/2011 - 01/01/2017, Done
 ade, adw : 01/01/2013 - 01/01/2017, Done
-hok, hkw: 01/01/2015 - 01/01/2017, Done
+hok, hkw: 01/01/2015 - 01/01/2017, Done  (alt not set to 300km)
 
 
 
