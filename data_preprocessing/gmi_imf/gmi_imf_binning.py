@@ -107,50 +107,51 @@ class gmi_imf_binning(object):
                 if len(rows) < num_lim:
                     continue
                 else:
-                    # normolize the (By, Bz) vectors
-                    bt = [np.array([x[2], x[3]]) / np.linalg.norm(np.array([x[2], x[3]])) for x in rows]
+                    if rows:
+                        # normolize the (By, Bz) vectors
+                        bt = [np.array([x[2], x[3]]) / np.linalg.norm(np.array([x[2], x[3]])) for x in rows]
 
-                    # find the bias vector
-                    bias_vec = np.array([np.mean([x[0] for x in bt]), np.mean([x[1] for x in bt])])
-                    #print "bias_vec = ", round(np.linalg.norm(bias_vec),2)
-                    bias_vec_norm = np.linalg.norm(bias_vec)
-                    if bias_vec_norm < bvec_max:
-                        continue
-                    clk_angle = np.degrees(np.arctan2(bias_vec[0], bias_vec[1]))
-                    for bn in bins:
-                        if np.sign(bn[0]) < 0 or np.sign(bn[1]) < 0:
-                            clk_angle = round(clk_angle, 2)
-                        else:
-                            clk_angle = round(clk_angle % 360, 2)
-                        #table_name = "b" + str((bn[0]%360)) + "_b" + str(bn[1]%360) 
-                        table_name = "b" + str((bn[0]%360)) + "_b" + str(bn[1]%360) + \
-                                     "_before" + str(before_mins) + "_after" +  str(after_mins) + \
-                                     "_bvec" + str(bvec_max).split('.')[-1]
-                        table_name_2 = table_name + "_all"
-                        if clk_angle>=bn[0] and clk_angle<=bn[1]: 
-                            clk_angle = round(clk_angle % 360, 2)
-                            # populate the table that stores the quite time intervals
-                            if add_kp:
-                                command = "INSERT OR IGNORE INTO {tb} (datetime, avg_clock_angle, kp) VALUES (?, ?, ?)"\
-                                .format(tb=table_name)
-                                cur.execute(command, (tm_target, clk_angle, kp))
-                            else:
-                                command = "INSERT OR IGNORE INTO {tb} (datetime, avg_clock_angle) VALUES (?, ?)"\
-                                .format(tb=table_name)
-                                cur.execute(command, (tm_target, clk_angle))
-
-                            # populate the table that stores quite time IMF for each minute
-                            for rw in rows:
-                                if add_kp:
-                                    command = "INSERT OR IGNORE INTO {tb} (datetime, Bx, By, Bz, clock_angle, kp) VALUES (?, ?, ?, ?, ?, ?)"\
-                                    .format(tb=table_name_2)
-                                    cur.execute(command, (rw[0], rw[1], rw[2], rw[3], rw[4], kp))
-                                else:
-                                    command = "INSERT OR IGNORE INTO {tb} (datetime, Bx, By, Bz, clock_angle) VALUES (?, ?, ?, ?, ?)"\
-                                    .format(tb=table_name_2)
-                                    cur.execute(command, (rw[0], rw[1], rw[2], rw[3], rw[4]))
-                        else:
+                        # find the bias vector
+                        bias_vec = np.array([np.mean([x[0] for x in bt]), np.mean([x[1] for x in bt])])
+                        #print "bias_vec = ", round(np.linalg.norm(bias_vec),2)
+                        bias_vec_norm = np.linalg.norm(bias_vec)
+                        if bias_vec_norm < bvec_max:
                             continue
+                        clk_angle = np.degrees(np.arctan2(bias_vec[0], bias_vec[1]))
+                        for bn in bins:
+                            if np.sign(bn[0]) < 0 or np.sign(bn[1]) < 0:
+                                clk_angle = round(clk_angle, 2)
+                            else:
+                                clk_angle = round(clk_angle % 360, 2)
+                            #table_name = "b" + str((bn[0]%360)) + "_b" + str(bn[1]%360) 
+                            table_name = "b" + str((bn[0]%360)) + "_b" + str(bn[1]%360) + \
+                                         "_before" + str(before_mins) + "_after" +  str(after_mins) + \
+                                         "_bvec" + str(bvec_max).split('.')[-1]
+                            table_name_2 = table_name + "_all"
+                            if clk_angle>=bn[0] and clk_angle<=bn[1]: 
+                                clk_angle = round(clk_angle % 360, 2)
+                                # populate the table that stores the quite time intervals
+                                if add_kp:
+                                    command = "INSERT OR IGNORE INTO {tb} (datetime, avg_clock_angle, kp) VALUES (?, ?, ?)"\
+                                    .format(tb=table_name)
+                                    cur.execute(command, (tm_target, clk_angle, kp))
+                                else:
+                                    command = "INSERT OR IGNORE INTO {tb} (datetime, avg_clock_angle) VALUES (?, ?)"\
+                                    .format(tb=table_name)
+                                    cur.execute(command, (tm_target, clk_angle))
+
+                                # populate the table that stores quite time IMF for each minute
+                                for rw in rows:
+                                    if add_kp:
+                                        command = "INSERT OR IGNORE INTO {tb} (datetime, Bx, By, Bz, clock_angle, kp) VALUES (?, ?, ?, ?, ?, ?)"\
+                                        .format(tb=table_name_2)
+                                        cur.execute(command, (rw[0], rw[1], rw[2], rw[3], rw[4], kp))
+                                    else:
+                                        command = "INSERT OR IGNORE INTO {tb} (datetime, Bx, By, Bz, clock_angle) VALUES (?, ?, ?, ?, ?)"\
+                                        .format(tb=table_name_2)
+                                        cur.execute(command, (rw[0], rw[1], rw[2], rw[3], rw[4]))
+                            else:
+                                continue
         conn.commit()
         
         # detach the source db
@@ -314,8 +315,10 @@ def main():
     import datetime as dt
     import numpy as np
 
-    stm = dt.datetime(2010, 12, 29)     # NOTE: minute of stm and etm must be 0.
-    etm = dt.datetime(2017, 1, 3)
+    #stm = dt.datetime(2010, 12, 29)     # NOTE: minute of stm and etm must be 0.
+    #etm = dt.datetime(2017, 1, 3)
+    stm = dt.datetime(2016, 12, 29)     # NOTE: minute of stm and etm must be 0.
+    etm = dt.datetime(2018, 7, 3)
     indbName = None
     baseLocation = "../../data/sqlite3/"
 
@@ -336,15 +339,27 @@ def main():
 #    gmi.bin_f107("binned_f107.sqlite", bins=bins)
 #    print "done"
 
-    # bin IMF clock angle 
-    bvec_max = 0.85
-    before_mins=80
+    # Create clock angle bins
+    sector_center_dist = 45
+    #sector_center_dist = 90
+    sector_width = 40
+    # Set bins for all clock angle range
+    bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
+
+#    # for binning IMF clock angle near 90 or 270
+#    sector_width = 30 
+#    sector_centers = [80 - sector_width/2, 100 + sector_width/2,
+#                      260 - sector_width/2, 280 + sector_width/2]
+#    bins = []
+#    for ctr in sector_centers:
+#        bins.append([ctr - sector_width/2, ctr + sector_width/2])
+
+
+    # Set IMF stability conditions
+    bvec_max = 0.90
+    before_mins=50
     after_mins=0
     del_tm=10
-
-    sector_width = 60 
-    sector_center_dist = 90
-    bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
 
     print "binning IMF"
     gmi.bin_imf("binned_imf.sqlite", bin_by_clock_angle=True,

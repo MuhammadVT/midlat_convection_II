@@ -353,10 +353,10 @@ def main():
     # create an object
     gmi = gmi_imf_to_db(stm, etm, db_name=db_name, base_location=base_location)
 
-#    # store IMF into db
-#    print "storing IMF to db"
-#    gmi.imf_to_db(resolution=resolution)
-#    print "imf is done"
+    # store IMF into db
+    print "storing IMF to db"
+    gmi.imf_to_db(resolution=resolution)
+    print "imf is done"
 
 #    # store F107 into db
 #    print "storing F107 to db"
@@ -364,10 +364,10 @@ def main():
 #    print "F107 is done"
 
 
-    # store kp into db
-    print "storing kp to db"
-    gmi.kp_to_db(kp_lim=kp_lim)
-    print "kp is done"
+#    # store kp into db
+#    print "storing kp to db"
+#    gmi.kp_to_db(kp_lim=kp_lim)
+#    print "kp is done"
 
 #    # store symh into db
 #    print "storing symh to db"

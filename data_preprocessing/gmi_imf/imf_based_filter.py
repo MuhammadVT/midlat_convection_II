@@ -7,7 +7,7 @@ def imf_based_filter(imf_table, output_table, stm, etm,
 		     output_dbname=None,
                      imf_dbname=None, imf_db_location="../../data/sqlite3/"):
 
-    """ Selects the data based on IMF.
+    """ Selects the data for stable IMF intervals.
 
     Parameters
     ----------
@@ -271,8 +271,8 @@ def main(run_in_parallel=False):
     import datetime as dt
     import numpy as np
 
-    stm = dt.datetime(2011, 1, 1)
-    etm = dt.datetime(2017, 1, 1)
+    stm = dt.datetime(2017, 1, 1)
+    etm = dt.datetime(2018, 7, 1)
 
     # initialize parameters
     coords = "mlt"
@@ -290,13 +290,23 @@ def main(run_in_parallel=False):
     imf_dbname="binned_imf.sqlite"
     imf_db_location="../../data/sqlite3/"
 
-    # set the imf bins
-    sector_width = 60
-    sector_center_dist = 90
+    # Create clock angle bins
+    #sector_center_dist = 90
+    sector_center_dist = 45 
+    sector_width = 40
+    # Set bins for all clock angle range
     imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
 
-    bvec_max = 0.85
-    before_mins=80
+#    # Set bins for IMF clock angle near 90 or 270
+#    sector_centers = [80 - sector_width/2, 100 + sector_width/2,
+#                      260 - sector_width/2, 280 + sector_width/2]
+#    imf_bins = []
+#    for ctr in sector_centers:
+#        imf_bins.append([ctr - sector_width/2, ctr + sector_width/2])
+
+    # Set IMF stability conditions
+    bvec_max = 0.95
+    before_mins=50
     after_mins=0
     del_tm=10
 

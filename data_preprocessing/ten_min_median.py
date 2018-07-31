@@ -243,13 +243,13 @@ def main(run_in_parallel=True):
     
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
-    logging.basicConfig(filename="./log_files/ten_min_median_ade_adw.log",
+    logging.basicConfig(filename="./log_files/ten_min_median_six_rads.log",
                         level=logging.INFO)
     # input parameters
     #stm = dt.datetime(2011, 1,1) 
-    stm = dt.datetime(2013, 1,1) 
+    stm = dt.datetime(2017, 1,1) 
     #stm = dt.datetime(2015, 1,1) 
-    etm = dt.datetime(2017, 1,1) 
+    etm = dt.datetime(2018, 7,1) 
     ftype = "fitacf"
     coords = "mlt"
     iscat_dbname = None       # if set to None, default iscat db would be used. 
@@ -257,10 +257,10 @@ def main(run_in_parallel=True):
     
     # run the code for the following radars in parallel
     #rad_list = ["hok"]
-    rad_list = ["ade", "adw"]
+    #rad_list = ["ade", "adw"]
     #rad_list = ["tig", "unw"]
     #rad_list = ["bpk"]
-    #rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
+    rad_list = ["bks", "wal", "fhe", "fhw", "cve", "cvw"]
     
     # store the multiprocess
     procs = []
