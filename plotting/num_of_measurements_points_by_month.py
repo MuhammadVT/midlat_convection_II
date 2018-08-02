@@ -1,7 +1,7 @@
 import matplotlib
 matplotlib.use('Agg')
 
-def num_plot(ax, data_dict, cmap, bounds,
+def num_plot(ax, data_dict, cmap=None, norm=None,
              lat_min=50, title="xxx"):
     
     """ plots the flow vectors in MLT coords """
@@ -13,8 +13,6 @@ def num_plot(ax, data_dict, cmap, bounds,
     import numpy as np
 
     from convection import pol2cart 
-
-    norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
 
     # plot the backgroud MLT coords
     rmax = 90 - lat_min
@@ -48,7 +46,7 @@ def num_plot(ax, data_dict, cmap, bounds,
 
     #do the actual overlay
     ccoll = ax.scatter(x1, y1,
-                    s=0.7,zorder=10,marker='o', c=np.abs(np.array(intensities)),
+                    s=2.5,zorder=10,marker='o', c=np.abs(np.array(intensities)),
                     linewidths=.5, edgecolors='face'
                     ,cmap=cmap,norm=norm)
 
@@ -65,7 +63,7 @@ def num_plot(ax, data_dict, cmap, bounds,
 
     return  ccoll
 
-def add_cbar(fig, coll, bounds, label="Number of Measurements", cax=None):
+def add_cbar(fig, coll, bounds=None, label="Number of Measurements", cax=None):
 
     # add color bar
     if cax:
@@ -75,18 +73,23 @@ def add_cbar(fig, coll, bounds, label="Number of Measurements", cax=None):
         cbar=fig.colorbar(coll, orientation="vertical", shrink=.65,
                           boundaries=bounds, drawedges=False) 
 
-
     #define the colorbar labels
-    l = []
-    for i in range(0,len(bounds)):
-        if i == len(bounds)-1:
-            l.append(' ')
-            continue
-        l.append(str(int(bounds[i])))
-    cbar.ax.set_yticklabels(l)
+    if bounds:
+        l = []
+        for i in range(0,len(bounds)):
+            if i == 0 or i == len(bounds)-1:
+                l.append(' ')
+                continue
+            l.append(str(int(bounds[i])))
+        cbar.ax.set_yticklabels(l)
+    else:
+        for i in [0, -1]:
+            lbl = cbar.ax.yaxis.get_ticklabels()[i]
+            lbl.set_visible(False)
     #cbar.ax.tick_params(axis='y',direction='out')
-    cbar.set_label(label, fontsize=7)
-    cbar.ax.tick_params(labelsize=7)
+    cbar.set_label(label)
+
+
 
     return
 
@@ -97,38 +100,57 @@ def by_month():
     from convection_by_month import fetch_data
     import matplotlib as mpl
     import calendar
+    from num_of_measurements_points import num_plot_rect
 
     # input parameters
     nvel_min=100
-    lat_range=[52, 60]
+    lat_range=[52, 59]
     lat_min = 50
+
+    frame_type = "rect"    # options: "rect" or "circ"
+    #frame_type = "circ"
+    #cmap_type = "discrete"    # options: "discrete" or "continuous"
+    cmap_type = "continuous"    # options: "discrete" or "continuous"
 
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
     rads_txt = "six_rads"
-    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23_by_month"
 
-    #months = range(1, 13)
-    months = [11, 12, 1, 2, 3, 4, 9, 10, 5, 6, 7, 8]
+    #years = [2015, 2016]
+    #years_txt = "_years_" + "_".join([str(x) for x in years])
+    years_txt = ""
+    tmp_txt = "_" + frame_type
 
-   
-    # build a custom color map and bounds
-    color_list = ['purple', 'b', 'dodgerblue', 'c', 'g', 'y', 'orange', 'r']
-    cmap = mpl.colors.ListedColormap(color_list)
-    bounds = range(0, 4000, 500)
-    #bounds = range(0, 8000, 1000)
-    #bounds = range(100, 800, 100)
-    bounds[0] = nvel_min
-    bounds.append(20000)
+    month_txt = "by_month"
+    #month_txt = "by_pseudo_month"
+    input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23_" + month_txt
 
-    fig_dir = "./plots/num_measurement_points_by_month/kp_l_3/data_in_mlt/"
-    fig_name = rads_txt + "_monthly_v2_num_measurement_points"
+    months = range(1, 13)
+    #months = [11, 12, 1, 2, 3, 4, 9, 10, 5, 6, 7, 8]
+
+    # Make cmap and norm
+    if cmap_type == "discrete":
+        # cmap and bounds for color bar with discrete colors
+        color_list = ['purple', 'b', 'dodgerblue', 'c', 'g', 'y', 'orange', 'r']
+        cmap = mpl.colors.ListedColormap(color_list)
+        bounds = range(0, 4000, 1000)
+        bounds[0] = 100
+        bounds.append(20000)
+        norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+
+    if cmap_type == "continuous":
+        # cmap and bounds for color bar with continuous colors
+        cmap = "jet"
+        bounds = None
+        vmin=0; vmax=4000
+        norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
 
     # create subplots
-    fig, axes = plt.subplots(nrows=3, ncols=4, figsize=(10,6))
+    fig, axes = plt.subplots(nrows=3, ncols=4, figsize=(12,5),
+                             sharex=True, sharey=True)
     axes = [ax for l in axes for ax in l]
-    fig.subplots_adjust(hspace=-0.5)
+    fig.subplots_adjust(hspace=0.3)
 
     if len(months) == 1:
         axes = [axes]
@@ -142,26 +164,33 @@ def by_month():
                     section="midlat", db_name=None, ftype=ftype,
                     coords=coords, sqrt_weighting=sqrt_weighting)
 
-
         # plot the flow vectors
-        title = "Number of Measurements, " + calendar.month_name[month][:3] + r", Kp $\leq$ 2+"
-        coll = num_plot(ax, data_dict, cmap, bounds,
-                        lat_min=lat_min, title=title)
+        title = "# Points, " + calendar.month_name[month][:3] + r", Kp $\leq$ 2+"
+        if frame_type == "circ":
+            coll = num_plot(ax, data_dict, cmap=cmap, norm=norm,
+                            lat_min=lat_min, title=title)
+        if frame_type == "rect":
+            coll = num_plot_rect(ax, data_dict, cmap=cmap, norm=norm,
+                                 lat_min=lat_min, title=title)
 
         # change the font
         for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
                      ax.get_xticklabels() + ax.get_yticklabels()):
-            item.set_fontsize(6)
+            item.set_fontsize(7)
 
     # add colorbar
     fig.subplots_adjust(right=0.90)
-    cbar_ax = fig.add_axes([0.93, 0.35, 0.01, 0.3])
+    cbar_ax = fig.add_axes([0.93, 0.25, 0.01, 0.5])
     add_cbar(fig, coll, bounds, cax=cbar_ax,
 	     label="Number of Measurements")
 
     # save the fig
-    fig.savefig(fig_dir + fig_name + ".png", dpi=300)
-    #fig.savefig(fig_dir + fig_name + ".pdf", format="pdf")
+    fig_dir = "./plots/num_measurement_points_by_month/kp_l_3/data_in_mlt/"
+    fig_name = rads_txt + "_monthly_num_measurement_points" + tmp_txt + "_lat" + str(lat_range[0]) +\
+               "_to_lat" + str(lat_range[1]) + "_nvel_min_" + str(nvel_min)
+    fig.savefig(fig_dir + fig_name + ".png", dpi=300, bbox_inches="tight")
+    #fig.savefig(fig_dir + fig_name + ".pdf", format="pdf", bbox_inches="tight")
+    plt.close(fig)
 #    plt.show()
 
     return
