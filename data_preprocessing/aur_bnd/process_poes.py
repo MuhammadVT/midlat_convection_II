@@ -4,14 +4,13 @@ Finds fitted Aur Bnd circles and writes them into files.
 
 import datetime
 import numpy as np
-import dask
 from poes import get_aur_bnd
 #import sys
 #sys.path.append("/home/muhammad/softwares/sataurlib/poes")
 #from get_aur_bnd import PoesAur
 
-sTimePOES = datetime.datetime( 2013, 1, 1 )
-eTimePOES = datetime.datetime( 2014, 1, 1 )
+sTimePOES = datetime.datetime( 2014, 3, 31 )
+eTimePOES = datetime.datetime( 2018, 7, 1 )
 dayCount = (eTimePOES - sTimePOES).days + 1
 
 # Set the time interval for saving the output data
@@ -94,18 +93,42 @@ def process_unit(inpDate):
 
     return
 
-# Loop through the days and process files
-output = []
-for inpDate in (sTimePOES + \
-                datetime.timedelta(n) for n in range(dayCount)):
+def worker(dates):
+    for inpDate in dates:
+        process_unit(inpDate)
+    return
 
-    # Run in sequence 
-    process_unit(inpDate)
+def main(run_in_parallel=True):
+    import multiprocessing as mp
 
-#    # Run in parallel
-#    c=dask.delayed(process_unit)(inpDate)
-#    output.append(c)
+    njobs = 10
+    dts = [sTimePOES +  datetime.timedelta(n) for n in range(dayCount)]
 
-#dask.compute(*output)
+    # Run in parallel
+    if run_in_parallel:
+        batch_size = len(dts)/njobs
+        batch_idxs = range(0, len(dts), batch_size) 
+        batch_idxs[-1] =  len(dts)
+        dts_list = [dts[batch_idxs[i]:batch_idxs[i+1]] for i in range(len(batch_idxs)-1)]
+        procs = []
+        for dts_p in dts_list:
+            p = mp.Process(target=worker, args=(dts_p,))
+            procs.append(p)
+
+            # run the process
+            p.start()
+        for p in procs:
+            p.join()
+
+    else:
+        # Loop through the days and process files
+        for inpDate in dts:
+            # Run in sequence 
+            process_unit(inpDate)
+
+
+if __name__ == "__main__":
+    #main(run_in_parallel=False)
+    main(run_in_parallel=True)
 
 
