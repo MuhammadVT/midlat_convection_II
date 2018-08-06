@@ -9,7 +9,7 @@ from poes import get_aur_bnd
 #sys.path.append("/home/muhammad/softwares/sataurlib/poes")
 #from get_aur_bnd import PoesAur
 
-sTimePOES = datetime.datetime( 2014, 3, 31 )
+sTimePOES = datetime.datetime( 2012, 1, 1 )
 eTimePOES = datetime.datetime( 2018, 7, 1 )
 dayCount = (eTimePOES - sTimePOES).days + 1
 
@@ -19,7 +19,7 @@ remove_outliers=True
 cutoff_iqr_prop=1.5
 save_fit_coeff = True
 #fit_outdir = "../../data/poes/bnd_tmp/"
-fit_outdir = "../../data/poes/bnd_fitcoeff/"
+fit_outdir = "../../data/poes/bnd_fitcoeff_tmp/"
 
 # Initialize the PoesAur Object attributes
 # set up a few constants
@@ -59,10 +59,17 @@ def process_unit(inpDate):
     if not poesAllEleDataDF.empty:
         timeRange = [ poesAllEleDataDF["date"].min(),\
                          poesAllEleDataDF["date"].max() ]
-        # Set the minutes of the starting and ending time to miltiples of 5
+        # Set the minutes of the starting and ending time to odd miltiples of 5
         t0, t1 = timeRange
-        timeRange[0] = t0.replace(minute=5*int(np.floor(t0.minute/5.))) 
-        timeRange[1] = t1.replace(minute=5*int(np.floor(t1.minute/5.))) 
+        fcs = [(int(t0.minute/5)), (int(t1.minute/5))]
+        for i, ti in enumerate([t0, t1]):
+            if fcs[i] % 2:
+                tmp_int = 5 * fcs[i]
+            else:
+                tmp_int = 5 * fcs[i] + 5
+            timeRange[i] = ti.replace(minute=tmp_int) 
+        #timeRange[0] = t0.replace(minute=5*int(np.floor(t0.minute/5.))) 
+        #timeRange[1] = t1.replace(minute=5*int(np.floor(t1.minute/5.))) 
         # aurPassDF contains closest passes for a given time 
         # for all the satellites in both the hemispheres!
         aurPassDF = poesRdObj.get_closest_sat_passes( poesAllEleDataDF,\
@@ -101,7 +108,7 @@ def worker(dates):
 def main(run_in_parallel=True):
     import multiprocessing as mp
 
-    njobs = 10
+    njobs = 15
     dts = [sTimePOES +  datetime.timedelta(n) for n in range(dayCount)]
 
     # Run in parallel
