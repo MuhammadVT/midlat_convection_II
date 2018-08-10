@@ -305,7 +305,7 @@ def main(run_in_parallel=False):
 #        imf_bins.append([ctr - sector_width/2, ctr + sector_width/2])
 
     # Set IMF stability conditions
-    bvec_max = 0.95
+    bvec_max = 0.90
     before_mins=50
     after_mins=0
     del_tm=10

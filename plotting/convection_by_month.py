@@ -473,7 +473,7 @@ def main():
 
     # add colorbar
     fig.subplots_adjust(right=0.90)
-    cbar_ax = fig.add_axes([0.93, 0.35, 0.01, 0.3])
+    cbar_ax = fig.add_axes([0.93, 0.25, 0.01, 0.5])
     add_cbar(fig, coll, bounds=bounds, cax=cbar_ax, label="Speed [m/s]")
 
     # save the fig

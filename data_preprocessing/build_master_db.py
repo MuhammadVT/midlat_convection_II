@@ -157,7 +157,12 @@ def build_master_table(input_table, output_table, ftype="fitacf", coords="mlt",
 
     return
 
+def add_aur_bnd():
+    pass
+
+
 def master_summary_by_season(input_table, output_table, coords="mlt", db_name=None,
+                             select_subauroral=True,
                              config_filename="../mysql_dbconfig_files/config.ini",
                              section="midlat"):
     

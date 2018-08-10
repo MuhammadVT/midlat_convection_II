@@ -8,6 +8,7 @@ from dask.multiprocessing import get
 from dask import dataframe as dd
 from dask import delayed 
 import multiprocessing as mp 
+from sqlalchemy.pool import NullPool
 
 #def get_mlon(row):
 #    # given the est bnd df, time get MLT from MLON
@@ -217,18 +218,19 @@ def add_aur_bnd(sd_input_table, sd_output_table, poes_table,
 #        pass
 #
 
-    print("Writing the output to {tb} table.".format(tb=sd_output_table))
+    print("\nWriting the output to {tb} table.".format(tb=sd_output_table))
     # Create a DB conn
     try:
         uri = "mysql://" + config_info["user"] + ":" +\
                            config_info["password"] + "@" +\
                            config_info["host"] +"/" +db_name
-        conn = create_engine(uri)
+        conn = create_engine(uri, poolclass=NullPool)
     except Exception, e:
         logging.error(e, exc_info=True)
     # Write to DB
     df.to_sql(sd_output_table, conn, if_exists="replace",
-              index=False)
+              index=False, chunksize=100000)
+    print("Done!")
     # Close DB connection
     try:
         conn.close()
@@ -291,9 +293,9 @@ def main():
     ftype = "fitacf"
     coords = "mlt"
     db_name = "ten_min_median_" + coords + "_" +ftype
-    #sd_input_table = rads_txt + kp_text+ "_" +ftype
-    sd_input_table = "test" 
-    sd_output_table = "test_subauroral" 
+    sd_input_table = rads_txt + kp_text+ "_" +ftype
+    #sd_input_table = "test" 
+    sd_output_table = sd_input_table + "_aurbnd" 
     poes_table = "poes_aur_bnd_coeff"
     nbatches = 5
 

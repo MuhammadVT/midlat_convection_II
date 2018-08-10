@@ -650,8 +650,8 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=False):
     coords = "mlt"
     seasons = ["winter"]
     #seasons = ["winter", "equinox", "summer"]
-    #veldir="zonal"
-    veldir="meridional"
+    veldir="zonal"
+    #veldir="meridional"
     xlim=[-6, 6]
     ylim=[-80, 30]
 
@@ -688,7 +688,7 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=False):
     tmp_txt = ""
 
     # Set IMF stability conditions
-    bvec_max = 0.95
+    bvec_max = 0.9
     before_mins=50
     after_mins=0
     del_tm=10
@@ -749,7 +749,7 @@ def by_imf_clock_angle(single_imf_bin=True, single_lat=False):
             # Set axis labels
 	    # Add label to first column and last row
 	    for i in [0, 3, 6]:
-		axes[i].set_ylabel("MLAT [degree]", fontsize=9)
+		axes[i].set_ylabel("Vel. [m/s]", fontsize=9)
 	    for i in range(6,9):
 		axes[i].set_xlabel("MLT", fontsize=9)
    
@@ -918,5 +918,5 @@ if __name__ == "__main__":
     #by_season()
     #six_rads_by_year()
     #by_pairs_of_radars()
-    by_kp(single_kp=True, single_lat=False)
-    #by_imf_clock_angle(single_imf_bin=True, single_lat=False)
+    #by_kp(single_kp=True, single_lat=False)
+    by_imf_clock_angle(single_imf_bin=True, single_lat=False)

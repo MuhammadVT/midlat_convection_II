@@ -73,6 +73,9 @@ def move_to_db(ddf, table_name, ftype="fitacf", coords="mlt",
     df = ddf.compute()
     print("Convered Dusk DF to Pandas Df")
 
+    # Set the datetime to HH:M5
+    df.datetime = df.datetime.apply(lambda x: x + dt.timedelta(minutes=5))
+
     # Move pandas DF to db
     try:
 	df.to_sql(table_name, conn, schema=None, if_exists='append',
@@ -90,8 +93,8 @@ def move_to_db(ddf, table_name, ftype="fitacf", coords="mlt",
 
 if __name__ == "__main__":
 
-    stm = dt.datetime( 2013, 1, 1 )
-    etm = dt.datetime( 2013, 1, 5 )
+    stm = dt.datetime( 2011, 1, 1 )
+    etm = dt.datetime( 2018, 7, 1 )
     file_dir = "../../data/poes/bnd_fitcoeff/"
     table_name = "poes_aur_bnd_coeff"
     db_name = None

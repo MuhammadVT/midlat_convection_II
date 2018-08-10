@@ -89,8 +89,6 @@ def add_cbar(fig, coll, bounds=None, label="Number of Measurements", cax=None):
     #cbar.ax.tick_params(axis='y',direction='out')
     cbar.set_label(label)
 
-
-
     return
 
 def by_month():
@@ -115,13 +113,13 @@ def by_month():
     ftype = "fitacf"
     coords = "mlt"
     sqrt_weighting = True
-    rads_txt = "six_rads"
 
     #years = [2015, 2016]
     #years_txt = "_years_" + "_".join([str(x) for x in years])
     years_txt = ""
     tmp_txt = "_" + frame_type
 
+    rads_txt = "six_rads"
     month_txt = "by_month"
     #month_txt = "by_pseudo_month"
     input_table = "master_cosfit_" + rads_txt + "_kp_00_to_23_" + month_txt
@@ -181,7 +179,7 @@ def by_month():
     # add colorbar
     fig.subplots_adjust(right=0.90)
     cbar_ax = fig.add_axes([0.93, 0.25, 0.01, 0.5])
-    add_cbar(fig, coll, bounds, cax=cbar_ax,
+    add_cbar(fig, coll, bounds=bounds, cax=cbar_ax,
 	     label="Number of Measurements")
 
     # save the fig

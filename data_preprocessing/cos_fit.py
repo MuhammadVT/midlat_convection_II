@@ -302,18 +302,27 @@ def main_imf():
     #years_txt = "_years_" + "_".join([str(x) for x in selected_years])
     years_txt = ""
     rads_txt = "six_rads"
+    kp_text = "_kp_00_to_23"
     db_name = "master_" + coords + "_" + ftype + "_binned_by_imf_clock_angle"
 
-    # set the imf bins
-    sector_width = 60
-    sector_center_dist = 90
+    # Create clock angle bins
+    sector_center_dist = 45
+    sector_width = 40
+    # set bins for all clock angle range
     imf_bins = [[x-sector_width/2, x+sector_width/2] for x in np.arange(0, 360, sector_center_dist)]
 
-    bvec_max = 0.85
-    before_mins=80
+#    # set bins for IMF clock angle near 90 or 270
+#    sector_centers = [80 - sector_width/2, 100 + sector_width/2,
+#                      260 - sector_width/2, 280 + sector_width/2]
+#    imf_bins = []
+#    for ctr in sector_centers:
+#        imf_bins.append([ctr - sector_width/2, ctr + sector_width/2])
+
+    # Set IMF stability conditions
+    bvec_max = 0.95
+    before_mins=50
     after_mins=0
     del_tm=10
-    kp_text = "_kp_00_to_23"
 
     # create a log file to which any error occured between client and
     # MySQL server communication will be written.
