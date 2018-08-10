@@ -29,6 +29,12 @@ The modules in this folder (midlat_convection_II folder) should be run in the fo
         NOTE: The following should be done before running gmi_based_filter
               run gmi_imf_to_db.py if indices data are not stored in db
 
+    * data_processing.add_aur_bnd
+        Calculates Equatorward Aur Bnd Mlat and Relative Mlat, and write the results
+        together with existing columns into a different table whose name
+        ends with _aurbnd.
+        NOTE: This will replace the original table each time it is executed
+
     * data.binning.build_master_db
         combines all the ten-min median filtered radars' data into one master table.
         Datetime information is lost in the summary table. 
@@ -36,6 +42,7 @@ The modules in this folder (midlat_convection_II folder) should be run in the fo
         NOTE: this has two main functions: main() and main_imf().
         main() can be run here, but main_imf() should come after imf_based_filter below is
         completed.
+        NOTE: Pay attentiont to the keyward subauroral_only
 
     * data_processing.gmi_imf.imf_based_filter
         NOTE: The following should be done before running imf_based_filter
