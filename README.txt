@@ -33,7 +33,14 @@ The modules in this folder (midlat_convection_II folder) should be run in the fo
         Calculates Equatorward Aur Bnd Mlat and Relative Mlat, and write the results
         together with existing columns into a different table whose name
         ends with _aurbnd.
-        NOTE: This will replace the original table each time it is executed
+        NOTE: This will replace the original table each time it is executed. 
+              This is because df.to_sql() is used with if_exist="replace".
+        CHECK THE FOLLOWING BEFORE:
+        NOTE: Files that store the fitting coefficients should be present.
+              If not, data_processing.aur_bnd.process_poes should be executed. 
+        NOTE: Fitting coefficients should be loaded into poes_aur_bnd_coeff table
+              in ten_min_median DB by running data_processing.aur_bnd.poes_aur_bnd_to_db.py
+              This step replaces the orginal table because if_exists="replace".
 
     * data.binning.build_master_db
         combines all the ten-min median filtered radars' data into one master table.
